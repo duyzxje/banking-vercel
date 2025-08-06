@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Banking Transactions Web App
 
-## Getting Started
+Hệ thống quản lý giao dịch ngân hàng với Next.js và MongoDB Atlas.
 
-First, run the development server:
+## 🚀 Tính năng
+
+- ✅ **Authentication** - JWT với MongoDB
+- ✅ **Dashboard** - Thống kê và giao dịch gần đây
+- ✅ **API Routes** - Serverless functions
+- ✅ **MongoDB Atlas** - Kết nối trực tiếp
+- ✅ **Responsive** - Mobile-first design
+- ✅ **Tailwind CSS** - Modern styling
+
+## 🔧 Cài đặt
 
 ```bash
+# Clone repository
+git clone <repo-url>
+cd banking-vercel
+
+# Cài đặt dependencies
+npm install
+
+# Tạo file .env.local
+cp .env.example .env.local
+
+# Chạy development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔐 Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Tạo file `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+MONGODB_URI=mongodb+srv://duyzxje2110:Exactly258@banking.gafjm6p.mongodb.net/banking-notifications?retryWrites=true&w=majority&appName=Banking
+JWT_SECRET=banking-secret-key-vercel-2025
+```
 
-## Learn More
+## 👤 Test Account (Development Only)
 
-To learn more about Next.js, take a look at the following resources:
+**⚠️ CHỈ SỬ DỤNG CHO DEVELOPMENT - KHÔNG DEPLOY VỚI THÔNG TIN NÀY**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+Username: duyen
+Password: giorlin@chuyenkhoan
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Deploy lên Vercel
 
-## Deploy on Vercel
+1. Push code lên GitHub
+2. Import vào Vercel
+3. Set Environment Variables
+4. Deploy!
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠 Kiến trúc
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+┌─────────────────┐    ┌─────────────────┐
+│   Vercel Web    │────│  MongoDB Atlas  │
+│   (Next.js)     │    │   (Direct)      │
+└─────────────────┘    └─────────────────┘
+                              │
+┌─────────────────┐    ┌─────────────────┐
+│  Android VPS    │────│  MongoDB Atlas  │
+│   (Backend)     │    │ (Collect Data)  │
+└─────────────────┘    └─────────────────┘
+```
+
+## 📁 Cấu trúc thư mục
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── auth/
+│   │   └── transactions/
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── Dashboard.tsx
+│   └── Login.tsx
+└── lib/
+    └── mongodb.ts
+```
+
+## 🔒 Bảo mật
+
+- JWT tokens cho authentication
+- Environment variables cho sensitive data
+- Không hardcode credentials trong code
+- HTTPS only trong production
