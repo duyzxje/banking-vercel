@@ -1,10 +1,8 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
+// Do not throw at import-time to avoid failing Next.js build on Vercel.
+// Validate the URI lazily inside connectDB when a request actually needs DB access.
+const MONGODB_URI = process.env.MONGODB_URI;
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -28,6 +26,9 @@ async function connectDB(): Promise<typeof mongoose> {
   }
 
   if (!cached!.promise) {
+    if (!MONGODB_URI) {
+      throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+    }
     const opts = {
       bufferCommands: false,
       maxPoolSize: 10,
