@@ -60,10 +60,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   useEffect(() => {
     loadData();
 
-    // Thiết lập auto-refresh mỗi 30 giây
+    // Thiết lập auto-refresh (nhẹ, không hiển thị loading)
     const interval = setInterval(() => {
       checkForNewTransactions();
-    }, 30000);
+    }, 15000);
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,7 +128,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const response = await fetch(`/api/transactions?limit=50&page=${nextPage}`, { headers });
       if (response.ok) {
         const data = await response.json();
-        setTransactions(prev => [...prev, ...(data.transactions || [])]);
+        const incoming: Transaction[] = (data.transactions || []) as Transaction[];
+        setTransactions(prev => {
+          const existingIds = new Set(prev.map(t => t._id));
+          const uniqueIncoming = incoming.filter(t => !existingIds.has(t._id));
+          // Also guard against duplicates inside the incoming page itself
+          const seen = new Set<string>();
+          const dedupIncoming = uniqueIncoming.filter(t => {
+            if (seen.has(t._id)) return false;
+            seen.add(t._id);
+            return true;
+          });
+          return [...prev, ...dedupIncoming];
+        });
         setCurrentPage(data.pagination?.currentPage || nextPage);
         setHasNextPage(Boolean(data.pagination?.hasNext));
       }
@@ -166,15 +178,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         const data = await response.json();
 
         if (data.success && data.transactions.length > 0) {
-          const latestTransaction = data.transactions[0];
-          const latestTransactionTime = new Date(latestTransaction.ngayGioGiaoDich);
-
-          if (lastUpdateTime && latestTransactionTime > lastUpdateTime) {
-            // Có giao dịch mới - tải lại trang đầu
-            await loadData(false);
-          }
+          const incoming: Transaction[] = data.transactions as Transaction[];
+          setTransactions(prev => {
+            const existingIds = new Set(prev.map(t => t._id));
+            const newOnes = incoming.filter(t => !existingIds.has(t._id));
+            // guard duplicates inside newOnes
+            const seen = new Set<string>();
+            const dedupNew = newOnes.filter(t => {
+              if (seen.has(t._id)) return false;
+              seen.add(t._id);
+              return true;
+            });
+            if (dedupNew.length === 0) return prev;
+            return [...dedupNew, ...prev];
+          });
         }
       }
+      // Dù có dữ liệu mới hay không, luôn cập nhật mốc thời gian "Cập nhật:" để người dùng biết lần đồng bộ gần nhất
+      setLastUpdateTime(new Date());
     } catch (error) {
       console.error('Check new transactions error:', error);
     }
@@ -380,9 +401,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0 pr-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className={`w-3 h-3 rounded-full ${transaction.soTienNumber > 0 ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <p className="text-sm font-semibold text-gray-900 break-words w-full sm:w-auto">
                             {transaction.tenNguoiChuyen}
                           </p>
                           <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
@@ -392,7 +412,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             {transaction.nganHangChuyen}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-700 truncate mb-2">
+                        <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap break-words">
                           {transaction.noiDungGiaoDich || 'Không có mô tả'}
                         </p>
 
