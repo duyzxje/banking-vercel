@@ -53,6 +53,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     search: ''
   });
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -85,14 +88,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         'Content-Type': 'application/json'
       };
 
-      // Load all transactions (no limit for filtering)
-      const transactionsResponse = await fetch('/api/transactions?limit=1000', {
-        headers
-      });
+      // Fetch first page with limit=50
+      const transactionsResponse = await fetch(`/api/transactions?limit=50&page=1`, { headers });
 
       if (transactionsResponse.ok) {
         const transactionsData = await transactionsResponse.json();
         setTransactions(transactionsData.transactions || []);
+        setCurrentPage(transactionsData.pagination?.currentPage || 1);
+        setHasNextPage(Boolean(transactionsData.pagination?.hasNext));
         setLastUpdateTime(new Date());
       } else {
         setError('Không thể tải dữ liệu');
@@ -102,6 +105,43 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setError('Lỗi kết nối');
     } finally {
       if (showLoading) setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    try {
+      if (loadingMore || !hasNextPage) return;
+
+      setLoadingMore(true);
+
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      const nextPage = currentPage + 1;
+      const response = await fetch(`/api/transactions?limit=50&page=${nextPage}`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(prev => [...prev, ...(data.transactions || [])]);
+        setCurrentPage(data.pagination?.currentPage || nextPage);
+        setHasNextPage(Boolean(data.pagination?.hasNext));
+      }
+    } catch (error) {
+      console.error('Load more transactions error:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+    const target = e.currentTarget;
+    const nearBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 40;
+    if (nearBottom) {
+      loadMore();
     }
   };
 
@@ -128,7 +168,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           const latestTransactionTime = new Date(latestTransaction.ngayGioGiaoDich);
 
           if (lastUpdateTime && latestTransactionTime > lastUpdateTime) {
-            // Có giao dịch mới - tự động cập nhật danh sách mà không hiển thị loading
+            // Có giao dịch mới - tải lại trang đầu
             await loadData(false);
           }
         }
@@ -328,7 +368,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               </div>
             </div>
 
-            <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto">
+            <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto" onScroll={handleScroll}>
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map((transaction) => (
                   <div
@@ -343,6 +383,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           <p className="text-sm font-semibold text-gray-900 truncate">
                             {transaction.tenNguoiChuyen}
                           </p>
+                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                            {transaction.taiKhoanChuyen}
+                          </span>
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                             {transaction.nganHangChuyen}
                           </span>
@@ -350,12 +393,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <p className="text-sm text-gray-700 truncate mb-2">
                           {transaction.noiDungGiaoDich || 'Không có mô tả'}
                         </p>
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{formatDate(transaction.ngayGioGiaoDich)}</span>
-                          <span className="text-blue-600 font-medium">
-                            {transaction.loaiGiaoDich}
-                          </span>
-                        </div>
+
                         <p className="text-xs text-gray-400 mt-1">
                           Mã GD: {transaction.maGiaoDich}
                         </p>
@@ -368,11 +406,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           {transaction.soTienNumber > 0 ? '+' : ''}
                           {formatCurrency(transaction.soTienNumber)}
                         </p>
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-2 ${transaction.soTienNumber > 0
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                          }`}>
-                          {transaction.soTienNumber > 0 ? '↗️ Tiền vào' : '↙️ Tiền ra'}
+                        <div className="flex flex-col items-end text-xs text-gray-500 mt-1">
+                          <span className="mb-1">{formatDate(transaction.ngayGioGiaoDich)}</span>
+                          <span className="text-blue-600 font-medium">{transaction.loaiGiaoDich}</span>
                         </div>
                       </div>
                     </div>
@@ -395,6 +431,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     </p>
                   )}
                 </div>
+              )}
+              {loadingMore && (
+                <div className="py-4 text-center text-xs text-gray-500">Đang tải thêm...</div>
               )}
             </div>
           </div>
