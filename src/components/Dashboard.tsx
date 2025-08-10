@@ -526,7 +526,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Loại giao dịch
                     </label>
-                    <p className="text-sm text-gray-900 bg-blue-50 p-2 rounded font-medium">
+                    <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded font-medium">
                       {selectedTransaction.loaiGiaoDich}
                     </p>
                   </div>
