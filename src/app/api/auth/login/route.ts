@@ -99,11 +99,14 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Login error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({
       success: false,
-      message: 'Lỗi server'
+      message: process.env.NODE_ENV === 'production'
+        ? 'Lỗi server (kiểm tra kết nối CSDL và cấu hình MONGODB_URI).'
+        : `Lỗi server: ${message}`
     }, { status: 500 });
   }
 }
