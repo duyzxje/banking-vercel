@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import connectDB from '@/lib/mongodb';
 import Transaction from '@/lib/models/Transaction';
 
@@ -13,7 +13,10 @@ async function verifyToken(request: NextRequest) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'banking-secret-key-vercel-2025');
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'banking-secret-key-vercel-2025'
+    ) as JwtPayload;
     return decoded;
   } catch (error) {
     throw new Error('Token không hợp lệ');
@@ -78,10 +81,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get stats error:', error);
 
-    if (error.message.includes('Token')) {
+    if (error instanceof Error && error.message.includes('Token')) {
       return NextResponse.json({
         success: false,
         message: error.message

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, Calendar, X, Filter } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X } from 'lucide-react';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -66,10 +66,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }, 30000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, filters]);
 
   const loadData = async (showLoading = true) => {

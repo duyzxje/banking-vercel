@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 
@@ -16,7 +16,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'banking-secret-key-vercel-2025') as any;
+    interface AuthPayload extends JwtPayload {
+      userId: string;
+      username?: string;
+      role?: string;
+    }
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'banking-secret-key-vercel-2025'
+    ) as AuthPayload;
 
     await connectDB();
 
