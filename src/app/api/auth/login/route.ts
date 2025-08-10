@@ -40,6 +40,21 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // Verify password (bcrypt first, fallback to plain text if DB wasn't hashed)
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, user.password);
+    } catch {
+      isValidPassword = password === user.password;
+    }
+
+    if (!isValidPassword) {
+      return NextResponse.json({
+        success: false,
+        message: 'Tên đăng nhập hoặc mật khẩu không đúng'
+      }, { status: 401 });
+    }
+
 
     // Update last login
     user.lastLogin = new Date();
