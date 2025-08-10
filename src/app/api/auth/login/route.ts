@@ -42,14 +42,14 @@ export async function POST(request: NextRequest) {
 
     // Verify password
     let isValidPassword = false;
-    
+
     // For user "duyen", check plain text first, then bcrypt
     if (username === 'duyen') {
       isValidPassword = password === 'giorlin@chuyenkhoan';
       if (!isValidPassword) {
         try {
           isValidPassword = await bcrypt.compare(password, user.password);
-        } catch (error) {
+        } catch {
           // If bcrypt fails, password might not be hashed
           isValidPassword = false;
         }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       // For other users, use bcrypt
       try {
         isValidPassword = await bcrypt.compare(password, user.password);
-      } catch (error) {
+      } catch {
         isValidPassword = false;
       }
     }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
+      {
         userId: user._id,
         username: user.username,
         role: user.role

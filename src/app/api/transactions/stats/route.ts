@@ -18,7 +18,7 @@ async function verifyToken(request: NextRequest) {
       process.env.JWT_SECRET || 'banking-secret-key-vercel-2025'
     ) as JwtPayload;
     return decoded;
-  } catch (error) {
+  } catch {
     throw new Error('Token không hợp lệ');
   }
 }

@@ -21,13 +21,13 @@ export default function Home() {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (response.ok) {
           setIsAuthenticated(true);
         } else {
           localStorage.removeItem('token');
         }
-      } catch (error) {
+      } catch {
         localStorage.removeItem('token');
       }
     }
