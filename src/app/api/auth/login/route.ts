@@ -40,35 +40,6 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Verify password
-    let isValidPassword = false;
-
-    // For user "duyen", check plain text first, then bcrypt
-    if (username === 'duyen') {
-      isValidPassword = password === 'giorlin@chuyenkhoan';
-      if (!isValidPassword) {
-        try {
-          isValidPassword = await bcrypt.compare(password, user.password);
-        } catch {
-          // If bcrypt fails, password might not be hashed
-          isValidPassword = false;
-        }
-      }
-    } else {
-      // For other users, use bcrypt
-      try {
-        isValidPassword = await bcrypt.compare(password, user.password);
-      } catch {
-        isValidPassword = false;
-      }
-    }
-
-    if (!isValidPassword) {
-      return NextResponse.json({
-        success: false,
-        message: 'Tên đăng nhập hoặc mật khẩu không đúng'
-      }, { status: 401 });
-    }
 
     // Update last login
     user.lastLogin = new Date();
