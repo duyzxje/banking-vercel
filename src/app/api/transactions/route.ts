@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import connectDB from '@/lib/mongodb';
-import Transaction from '@/lib/models/Transaction';
+import Transaction, { ITransaction } from '@/lib/models/Transaction';
+import type { FilterQuery } from 'mongoose';
 
 // Middleware to verify JWT token
 async function verifyToken(request: NextRequest) {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     // const status = searchParams.get('status');
 
     // Build filter object
-    const filter: Record<string, unknown> = {};
+    const filter: FilterQuery<ITransaction> = {};
 
     // Search across multiple fields
     if (search) {
@@ -60,15 +61,16 @@ export async function GET(request: NextRequest) {
 
     // Date range filter
     if (dateFrom || dateTo) {
-      filter.ngayGioGiaoDich = {};
+      const dateFilter: { $gte?: Date; $lte?: Date } = {};
       if (dateFrom) {
-        filter.ngayGioGiaoDich.$gte = new Date(dateFrom);
+        dateFilter.$gte = new Date(dateFrom);
       }
       if (dateTo) {
         const endDate = new Date(dateTo);
         endDate.setHours(23, 59, 59, 999);
-        filter.ngayGioGiaoDich.$lte = endDate;
+        dateFilter.$lte = endDate;
       }
+      filter.ngayGioGiaoDich = dateFilter as any;
     }
 
     // Transaction type filter
