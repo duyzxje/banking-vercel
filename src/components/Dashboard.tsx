@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Users, Home, Calendar, ChevronRight, MapPin, AlertCircle } from 'lucide-react';
+import AttendanceService from './AttendanceService';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -56,6 +57,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasNextPage, setHasNextPage] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'transactions' | 'attendance'>('transactions');
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
+  const [attendanceError, setAttendanceError] = useState<string>('');
+  const [locationLoading, setLocationLoading] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -73,6 +80,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, filters]);
+
+  useEffect(() => {
+    if (activeTab === 'attendance') {
+      loadAttendanceHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const loadData = async (showLoading = true) => {
     try {
@@ -156,6 +170,65 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     const nearBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 40;
     if (nearBottom) {
       loadMore();
+    }
+  };
+
+  const loadAttendanceHistory = async () => {
+    try {
+      setAttendanceLoading(true);
+      setAttendanceError('');
+
+      // Get last 7 days
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const history = await AttendanceService.getAttendanceHistory(startDate, endDate);
+      setAttendanceHistory(history);
+    } catch (error) {
+      console.error('Failed to load attendance history:', error);
+      setAttendanceError('Không thể tải lịch sử chấm công');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      setLocationLoading(true);
+      setAttendanceError('');
+
+      const position = await AttendanceService.getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      await AttendanceService.checkIn({ latitude, longitude });
+
+      // Reload attendance history
+      await loadAttendanceHistory();
+    } catch (error) {
+      console.error('Check-in error:', error);
+      setAttendanceError(error instanceof Error ? error.message : 'Không thể check-in. Vui lòng kiểm tra quyền truy cập vị trí.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    try {
+      setLocationLoading(true);
+      setAttendanceError('');
+
+      const position = await AttendanceService.getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      await AttendanceService.checkOut({ latitude, longitude });
+
+      // Reload attendance history
+      await loadAttendanceHistory();
+    } catch (error) {
+      console.error('Check-out error:', error);
+      setAttendanceError(error instanceof Error ? error.message : 'Không thể check-out. Vui lòng kiểm tra quyền truy cập vị trí.');
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -282,184 +355,348 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-30 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:fixed md:z-10`}>
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Giorlin App</h1>
+              <p className="text-xs text-gray-500">Management System</p>
+            </div>
+          </div>
+        </div>
+
+        <nav className="p-4">
+          <ul className="space-y-2">
+            <li>
+              <button
+                onClick={() => { setActiveTab('transactions'); setSidebarOpen(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <Home className="h-5 w-5" />
+                <span>Giao dịch</span>
+                {activeTab === 'transactions' && <ChevronRight className="h-4 w-4 ml-auto" />}
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => { setActiveTab('attendance'); setSidebarOpen(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'attendance' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <Clock className="h-5 w-5" />
+                <span>Chấm công</span>
+                {activeTab === 'attendance' && <ChevronRight className="h-4 w-4 ml-auto" />}
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Đăng xuất</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 md:pl-72">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Banking</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">Transaction Management</p>
-              </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="mr-4 p-2 rounded-lg hover:bg-gray-100 md:hidden"
+              >
+                <Menu className="h-6 w-6 text-gray-700" />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">
+                {activeTab === 'transactions' ? 'Giao dịch ngân hàng' : 'Chấm công nhân viên'}
+              </h1>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors duration-200 p-2 rounded-lg hover:bg-gray-100"
-              >
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline text-sm font-medium">Đăng xuất</span>
-              </button>
+              <div className="text-sm text-gray-500">
+                {new Date().toLocaleDateString('vi-VN')}
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div className="space-y-4 sm:space-y-6">
-          {/* Page Title */}
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Giao dịch ngân hàng</h1>
-            <div className="flex items-center justify-center space-x-2">
-              <p className="text-gray-600 text-sm sm:text-base">
-                Quản lý và theo dõi các giao dịch
-              </p>
-              <div className="flex items-center space-x-1">
-              </div>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-            <div className="max-w-md mx-auto">
-              <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
-                Tìm kiếm giao dịch
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm theo tên, nội dung, mã giao dịch, số tiền..."
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
-              </div>
-              {filters.search && (
-                <div className="mt-2 text-center">
-                  <button
-                    onClick={() => handleFilterChange('search', '')}
-                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors duration-200"
-                  >
-                    Xóa tìm kiếm
-                  </button>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:ml-64 transition-all duration-300 md:pl-8">
+        {activeTab === 'transactions' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Search Bar */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+              <div className="max-w-md mx-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                  Tìm kiếm giao dịch
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên, nội dung, mã giao dịch, số tiền..."
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600">{error}</p>
-            </div>
-          )}
-
-          {/* Transactions List */}
-          <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center">
-                  <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-blue-600" />
-                  Danh sách giao dịch
-                </h2>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <span className="text-sm font-medium text-gray-700">
-                      {filteredTransactions.length} giao dịch
-                    </span>
-                    {lastUpdateTime && (
-                      <p className="text-xs text-gray-500">
-                        Cập nhật: {lastUpdateTime.toLocaleTimeString('vi-VN')}
-                      </p>
-                    )}
+                {filters.search && (
+                  <div className="mt-2 text-center">
+                    <button
+                      onClick={() => handleFilterChange('search', '')}
+                      className="text-xs text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                    >
+                      Xóa tìm kiếm
+                    </button>
                   </div>
-                  <button
-                    onClick={() => loadData()}
-                    disabled={loading}
-                    className="p-2 text-gray-400 hover:text-blue-600 transition-colors duration-200 disabled:opacity-50 hover:bg-blue-50 rounded-lg"
-                    title="Làm mới"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+                )}
               </div>
             </div>
 
-            <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto" onScroll={handleScroll}>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((transaction) => (
-                  <div
-                    key={transaction._id}
-                    className="p-4 sm:p-6 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 border-l-4 border-transparent hover:border-blue-400"
-                    onClick={() => openTransactionDetail(transaction)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <p className="text-sm font-semibold text-gray-900 break-words w-full sm:w-auto">
-                            {transaction.tenNguoiChuyen}
-                          </p>
-                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-                            {transaction.taiKhoanChuyen}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                            {transaction.nganHangChuyen}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap break-words">
-                          {transaction.noiDungGiaoDich || 'Không có mô tả'}
-                        </p>
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-600">{error}</p>
+              </div>
+            )}
 
-                        <p className="text-xs text-gray-400 mt-1">
-                          Mã GD: {transaction.maGiaoDich}
+            {/* Transactions List */}
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+              <div className="p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center">
+                    <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-blue-600" />
+                    Danh sách giao dịch
+                  </h2>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-gray-700">
+                        {filteredTransactions.length} giao dịch
+                      </span>
+                      {lastUpdateTime && (
+                        <p className="text-xs text-gray-500">
+                          Cập nhật: {lastUpdateTime.toLocaleTimeString('vi-VN')}
                         </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className={`text-lg sm:text-xl font-bold ${transaction.soTienNumber > 0
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                          }`}>
-                          {transaction.soTienNumber > 0 ? '+' : ''}
-                          {formatCurrency(transaction.soTienNumber)}
-                        </p>
-                        <div className="flex flex-col items-end text-xs text-gray-500 mt-1">
-                          <span className="mb-1">{formatDate(transaction.ngayGioGiaoDich)}</span>
-                          <span className="text-blue-600 font-medium">{transaction.loaiGiaoDich}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => loadData()}
+                      disabled={loading}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors duration-200 disabled:opacity-50 hover:bg-blue-50 rounded-lg"
+                      title="Làm mới"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto" onScroll={handleScroll}>
+                {filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((transaction) => (
+                    <div
+                      key={transaction._id}
+                      className="p-4 sm:p-6 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 border-l-4 border-transparent hover:border-blue-400"
+                      onClick={() => openTransactionDetail(transaction)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <p className="text-sm font-semibold text-gray-900 break-words w-full sm:w-auto">
+                              {transaction.tenNguoiChuyen}
+                            </p>
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                              {transaction.taiKhoanChuyen}
+                            </span>
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                              {transaction.nganHangChuyen}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap break-words">
+                            {transaction.noiDungGiaoDich || 'Không có mô tả'}
+                          </p>
+
+                          <p className="text-xs text-gray-400 mt-1">
+                            Mã GD: {transaction.maGiaoDich}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-lg sm:text-xl font-bold ${transaction.soTienNumber > 0
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                            }`}>
+                            {transaction.soTienNumber > 0 ? '+' : ''}
+                            {formatCurrency(transaction.soTienNumber)}
+                          </p>
+                          <div className="flex flex-col items-end text-xs text-gray-500 mt-1">
+                            <span className="mb-1">{formatDate(transaction.ngayGioGiaoDich)}</span>
+                            <span className="text-blue-600 font-medium">{transaction.loaiGiaoDich}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <CreditCard className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-lg mb-2">
-                    {filters.search
-                      ? 'Không tìm thấy giao dịch nào phù hợp'
-                      : 'Chưa có giao dịch nào'
-                    }
-                  </p>
-                  {filters.search && (
-                    <p className="text-gray-400 text-sm">
-                      Thử tìm kiếm với từ khóa khác
+                  ))
+                ) : (
+                  <div className="p-12 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <CreditCard className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 text-lg mb-2">
+                      {filters.search
+                        ? 'Không tìm thấy giao dịch nào phù hợp'
+                        : 'Chưa có giao dịch nào'
+                      }
                     </p>
-                  )}
-                </div>
-              )}
-              {loadingMore && (
-                <div className="py-4 text-center text-xs text-gray-500">Đang tải thêm...</div>
-              )}
+                    {filters.search && (
+                      <p className="text-gray-400 text-sm">
+                        Thử tìm kiếm với từ khóa khác
+                      </p>
+                    )}
+                  </div>
+                )}
+                {loadingMore && (
+                  <div className="py-4 text-center text-xs text-gray-500">Đang tải thêm...</div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'attendance' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Attendance UI */}
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+              <div className="mb-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center mb-4">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-blue-600" />
+                  Chấm công hôm nay
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={handleCheckIn}
+                    disabled={locationLoading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white py-4 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {locationLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span className="font-medium">Đang lấy vị trí...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-5 w-5" />
+                        <span className="font-medium">Check In</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={locationLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white py-4 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {locationLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span className="font-medium">Đang lấy vị trí...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-5 w-5" />
+                        <span className="font-medium">Check Out</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {attendanceError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
+                    <AlertCircle className="h-5 w-5 text-red-500" />
+                    <p className="text-sm text-red-600">{attendanceError}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-md font-medium text-gray-900">Lịch sử chấm công</h3>
+                  <button
+                    onClick={loadAttendanceHistory}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                    disabled={attendanceLoading}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${attendanceLoading ? 'animate-spin' : ''}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check In</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check Out</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng giờ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {attendanceLoading ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                              <span>Đang tải...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : attendanceHistory.length > 0 ? (
+                        attendanceHistory.map((record) => (
+                          <tr key={record._id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(record.date).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.checkIn ? new Date(record.checkIn.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.checkOut ? new Date(record.checkOut.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {record.totalHours || '--:--'}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                            Chưa có dữ liệu chấm công
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Transaction Detail Modal */}

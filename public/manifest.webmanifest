@@ -1,6 +1,6 @@
 {
-    "name": "Giorlin Banking",
-    "short_name": "Banking",
+    "name": "Giorlin",
+    "short_name": "Giorlin",
     "description": "Quản lý giao dịch ngân hàng",
     "start_url": "/",
     "display": "standalone",
