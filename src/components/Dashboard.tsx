@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Users, Home, Calendar, ChevronRight, MapPin, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle } from 'lucide-react';
 import AttendanceService from './AttendanceService';
+import { AttendanceRecord } from './AttendanceTypes';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -59,7 +60,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'transactions' | 'attendance'>('transactions');
-  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
@@ -81,12 +82,31 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, filters]);
 
+  // Define loadAttendanceHistory with useCallback
+  const loadAttendanceHistory = useCallback(async () => {
+    try {
+      setAttendanceLoading(true);
+      setAttendanceError('');
+
+      // Get last 7 days
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const history = await AttendanceService.getAttendanceHistory(startDate, endDate);
+      setAttendanceHistory(history);
+    } catch (error) {
+      console.error('Failed to load attendance history:', error);
+      setAttendanceError('Không thể tải lịch sử chấm công');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'attendance') {
       loadAttendanceHistory();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, loadAttendanceHistory]);
 
   const loadData = async (showLoading = true) => {
     try {
@@ -173,24 +193,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const loadAttendanceHistory = async () => {
-    try {
-      setAttendanceLoading(true);
-      setAttendanceError('');
 
-      // Get last 7 days
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      const history = await AttendanceService.getAttendanceHistory(startDate, endDate);
-      setAttendanceHistory(history);
-    } catch (error) {
-      console.error('Failed to load attendance history:', error);
-      setAttendanceError('Không thể tải lịch sử chấm công');
-    } finally {
-      setAttendanceLoading(false);
-    }
-  };
 
   const handleCheckIn = async () => {
     try {
@@ -667,7 +670,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           </td>
                         </tr>
                       ) : attendanceHistory.length > 0 ? (
-                        attendanceHistory.map((record) => (
+                        attendanceHistory.map((record: AttendanceRecord) => (
                           <tr key={record._id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {new Date(record.date).toLocaleDateString('vi-VN')}

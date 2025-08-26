@@ -46,7 +46,7 @@ export default function Login({ onLogin }: LoginProps) {
       } else {
         setError(data.message);
       }
-    } catch (error) {
+    } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setLoading(false);

@@ -1,37 +1,6 @@
 'use client';
 
-interface CheckInOutData {
-    longitude: number;
-    latitude: number;
-    notes?: string;
-    officeId?: string;
-}
-
-interface AttendanceRecord {
-    _id: string;
-    userId: string;
-    date: string;
-    checkIn: {
-        time: string;
-        coordinates: {
-            longitude: number;
-            latitude: number;
-        };
-        officeId?: string;
-        notes?: string;
-    };
-    checkOut?: {
-        time: string;
-        coordinates: {
-            longitude: number;
-            latitude: number;
-        };
-        notes?: string;
-    };
-    totalHours?: string;
-    createdAt: string;
-    updatedAt: string;
-}
+import { CheckInOutData, AttendanceRecord } from './AttendanceTypes';
 
 const API_URL = 'https://worktime-dux3.onrender.com/api';
 
