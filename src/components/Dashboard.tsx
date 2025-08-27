@@ -436,6 +436,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  const formatWorkDuration = (minutes: number) => {
+    if (minutes === 0) return '0m';
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours > 0 && remainingMinutes > 0) {
+      return `${hours}h ${remainingMinutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h`;
+    } else {
+      return `${remainingMinutes}m`;
+    }
+  };
+
 
 
   const handleLogout = () => {
@@ -807,7 +822,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                               {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.workTimeFormatted || (record.workDuration !== undefined ? `${record.workDuration}` : '--:--')}
+                              {record.workTimeFormatted || (record.workDuration !== undefined ? formatWorkDuration(record.workDuration) : '--:--')}
                             </td>
                           </tr>
                         ))
