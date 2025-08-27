@@ -87,28 +87,18 @@ export const AttendanceService = {
         return result;
     },
 
-    async getAttendanceHistory(userId: string, startDate?: string, endDate?: string): Promise<AttendanceRecord[]> {
+    async getAttendanceHistory(userId: string): Promise<AttendanceRecord[]> {
         const token = localStorage.getItem('token');
         if (!token) {
             throw new Error('Unauthorized');
         }
 
-        let url = `${API_URL}/attendance/${userId}`;
-        const params = new URLSearchParams();
-
-        if (startDate) params.append('startDate', startDate);
-        if (endDate) params.append('endDate', endDate);
-
-        if (params.toString()) {
-            url += `?${params.toString()}`;
-        }
+        const url = `${API_URL}/attendance/${userId}`;
 
         // Log request details
         console.log('Fetching attendance history:', {
             userId,
-            url,
-            startDate,
-            endDate
+            url
         });
 
         const response = await fetch(url, {
@@ -125,7 +115,15 @@ export const AttendanceService = {
 
         const result = await response.json();
         console.log('Attendance history response:', result);
-        return result;
+
+        // Handle the new API response format
+        if (result.attendance && Array.isArray(result.attendance)) {
+            console.log(`Received ${result.attendance.length} attendance records from API`);
+            return result.attendance;
+        }
+
+        // Fallback to the old format if needed
+        return Array.isArray(result) ? result : [];
     },
 
     async getCurrentPosition(): Promise<GeolocationPosition> {

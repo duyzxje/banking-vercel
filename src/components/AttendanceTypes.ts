@@ -8,26 +8,25 @@ export interface CheckInOutData {
 
 export interface AttendanceRecord {
     _id: string;
-    userId: string;
-    date: string;
-    checkIn: {
-        time: string;
-        coordinates: {
-            longitude: number;
-            latitude: number;
-        };
-        officeId?: string;
-        notes?: string;
+    user: string;
+    checkInTime: string;
+    checkInTimeFormatted: string;
+    checkInDateFormatted: string;
+    checkOutTime?: string;
+    checkOutTimeFormatted?: string;
+    checkInLocation?: {
+        type: string;
+        coordinates: [number, number];
     };
-    checkOut?: {
-        time: string;
-        coordinates: {
-            longitude: number;
-            latitude: number;
-        };
-        notes?: string;
+    checkOutLocation?: {
+        type: string;
+        coordinates: [number, number];
     };
-    totalHours?: string;
-    createdAt: string;
-    updatedAt: string;
+    status: 'checked-in' | 'checked-out';
+    isValid: boolean;
+    officeId?: string;
+    workDuration?: number;
+    workTimeFormatted?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }

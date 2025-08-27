@@ -62,6 +62,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
+  const [attendanceSuccess, setAttendanceSuccess] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -113,17 +114,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Define loadAttendanceHistory with useCallback
   const loadAttendanceHistory = useCallback(async () => {
     try {
-      if (!userId) return;
+      if (!userId) {
+        console.log('Không thể tải lịch sử chấm công: userId không tồn tại');
+        return;
+      }
 
       setAttendanceLoading(true);
       setAttendanceError('');
 
-      // Get last 7 days
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      console.log(`Đang tải lịch sử chấm công cho userId: ${userId}`);
+      const history = await AttendanceService.getAttendanceHistory(userId);
+      console.log(`Đã nhận ${history.length} bản ghi chấm công`);
 
-      const history = await AttendanceService.getAttendanceHistory(userId, startDate, endDate);
-      setAttendanceHistory(history);
+      // Lọc lịch sử chấm công theo userId hiện tại
+      const filteredHistory = history.filter(record => record.user === userId);
+      console.log(`Sau khi lọc: ${filteredHistory.length} bản ghi thuộc về userId hiện tại`);
+
+      setAttendanceHistory(filteredHistory);
     } catch (error) {
       console.error('Failed to load attendance history:', error);
       setAttendanceError('Không thể tải lịch sử chấm công');
@@ -185,17 +192,32 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       setLocationLoading(true);
       setAttendanceError('');
+      setAttendanceSuccess('');
 
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      await AttendanceService.checkIn(userId, longitude, latitude);
+      const result = await AttendanceService.checkIn(userId, longitude, latitude);
+
+      // Show success message
+      setAttendanceSuccess('Check-in thành công lúc ' + new Date().toLocaleTimeString('vi-VN'));
+
+      // Tự động ẩn thông báo thành công sau 5 giây
+      setTimeout(() => {
+        setAttendanceSuccess('');
+      }, 5000);
 
       // Reload attendance history
       await loadAttendanceHistory();
     } catch (error) {
       console.error('Check-in error:', error);
       setAttendanceError(error instanceof Error ? error.message : 'Không thể check-in. Vui lòng kiểm tra quyền truy cập vị trí.');
+      setAttendanceSuccess('');
+
+      // Tự động ẩn thông báo lỗi sau 5 giây
+      setTimeout(() => {
+        setAttendanceError('');
+      }, 5000);
     } finally {
       setLocationLoading(false);
     }
@@ -210,17 +232,32 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       setLocationLoading(true);
       setAttendanceError('');
+      setAttendanceSuccess('');
 
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      await AttendanceService.checkOut(userId, longitude, latitude);
+      const result = await AttendanceService.checkOut(userId, longitude, latitude);
+
+      // Show success message
+      setAttendanceSuccess('Check-out thành công lúc ' + new Date().toLocaleTimeString('vi-VN'));
+
+      // Tự động ẩn thông báo thành công sau 5 giây
+      setTimeout(() => {
+        setAttendanceSuccess('');
+      }, 5000);
 
       // Reload attendance history
       await loadAttendanceHistory();
     } catch (error) {
       console.error('Check-out error:', error);
       setAttendanceError(error instanceof Error ? error.message : 'Không thể check-out. Vui lòng kiểm tra quyền truy cập vị trí.');
+      setAttendanceSuccess('');
+
+      // Tự động ẩn thông báo lỗi sau 5 giây
+      setTimeout(() => {
+        setAttendanceError('');
+      }, 5000);
     } finally {
       setLocationLoading(false);
     }
@@ -629,6 +666,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <p className="text-sm text-red-600">{attendanceError}</p>
                   </div>
                 )}
+
+                {attendanceSuccess && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+                    <div className="h-5 w-5 text-green-500 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-green-600">{attendanceSuccess}</p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -665,18 +713,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </tr>
                       ) : attendanceHistory.length > 0 ? (
                         attendanceHistory.map((record: AttendanceRecord) => (
-                          <tr key={record._id}>
+                          <tr key={record._id} className={!record.isValid ? "bg-red-50" : ""}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(record.date).toLocaleDateString('vi-VN')}
+                              {record.checkInDateFormatted || new Date(record.checkInTime).toLocaleDateString('vi-VN')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.checkIn ? new Date(record.checkIn.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                              {record.checkInTimeFormatted || new Date(record.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {!record.isValid && <span className="ml-2 text-xs text-red-500">(Không hợp lệ)</span>}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.checkOut ? new Date(record.checkOut.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                              {record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.totalHours || '--:--'}
+                              {record.workTimeFormatted || (record.workDuration !== undefined ? `${record.workDuration} phút` : '--:--')}
                             </td>
                           </tr>
                         ))
