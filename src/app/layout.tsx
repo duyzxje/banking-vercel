@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Giorlin Banking",
-  description: "Giorlin Banking",
+  title: "Giorlin",
+  description: "Giorlin",
   manifest: "/manifest.webmanifest",
   themeColor: "#2563eb",
   icons: {
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Giorlin Banking",
+    title: "Giorlin",
   },
 };
 

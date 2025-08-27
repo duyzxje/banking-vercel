@@ -19,6 +19,13 @@
   }
 }
 
+/* Custom breakpoint for extra small screens */
+@media screen and (min-width: 400px) {
+  .xs\:block {
+    display: block;
+  }
+}
+
 body {
   background-color: #f9fafb;
   color: #111827;

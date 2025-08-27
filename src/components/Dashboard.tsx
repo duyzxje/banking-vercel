@@ -46,6 +46,7 @@ interface Filters {
 }
 
 export default function Dashboard({ onLogout }: DashboardProps) {
+  const [userName, setUserName] = useState<string>('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,9 +56,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     search: ''
   });
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'transactions' | 'attendance'>('transactions');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -67,6 +66,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   useEffect(() => {
     loadData();
+    loadUserProfile();
 
     // Thiết lập auto-refresh (nhẹ, không hiển thị loading)
     const interval = setInterval(() => {
@@ -82,9 +82,39 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, filters]);
 
+  const [userId, setUserId] = useState<string>('');
+
+  const loadUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        onLogout();
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      const response = await fetch('/api/auth/verify', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          setUserName(data.user.name || data.user.username || 'User');
+          setUserId(data.user.id || '');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    }
+  };
+
   // Define loadAttendanceHistory with useCallback
   const loadAttendanceHistory = useCallback(async () => {
     try {
+      if (!userId) return;
+
       setAttendanceLoading(true);
       setAttendanceError('');
 
@@ -92,7 +122,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      const history = await AttendanceService.getAttendanceHistory(startDate, endDate);
+      const history = await AttendanceService.getAttendanceHistory(userId, startDate, endDate);
       setAttendanceHistory(history);
     } catch (error) {
       console.error('Failed to load attendance history:', error);
@@ -100,7 +130,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     } finally {
       setAttendanceLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (activeTab === 'attendance') {
@@ -124,14 +154,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         'Content-Type': 'application/json'
       };
 
-      // Fetch first page with limit=50
-      const transactionsResponse = await fetch(`/api/transactions?limit=50&page=1`, { headers });
+      // Fetch all transactions
+      const transactionsResponse = await fetch(`/api/transactions?limit=0`, { headers });
 
       if (transactionsResponse.ok) {
         const transactionsData = await transactionsResponse.json();
         setTransactions(transactionsData.transactions || []);
-        setCurrentPage(transactionsData.pagination?.currentPage || 1);
-        setHasNextPage(Boolean(transactionsData.pagination?.hasNext));
         setLastUpdateTime(new Date());
       } else {
         setError('Không thể tải dữ liệu');
@@ -144,66 +172,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const loadMore = async () => {
-    try {
-      if (loadingMore || !hasNextPage) return;
-
-      setLoadingMore(true);
-
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
-
-      const nextPage = currentPage + 1;
-      const response = await fetch(`/api/transactions?limit=50&page=${nextPage}`, { headers });
-      if (response.ok) {
-        const data = await response.json();
-        const incoming: Transaction[] = (data.transactions || []) as Transaction[];
-        setTransactions(prev => {
-          const existingIds = new Set(prev.map(t => t._id));
-          const uniqueIncoming = incoming.filter(t => !existingIds.has(t._id));
-          // Also guard against duplicates inside the incoming page itself
-          const seen = new Set<string>();
-          const dedupIncoming = uniqueIncoming.filter(t => {
-            if (seen.has(t._id)) return false;
-            seen.add(t._id);
-            return true;
-          });
-          return [...prev, ...dedupIncoming];
-        });
-        setCurrentPage(data.pagination?.currentPage || nextPage);
-        setHasNextPage(Boolean(data.pagination?.hasNext));
-      }
-    } catch (error) {
-      console.error('Load more transactions error:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const handleScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
-    const target = e.currentTarget;
-    const nearBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 40;
-    if (nearBottom) {
-      loadMore();
-    }
-  };
+  // Removed infinite scroll functions
 
 
 
   const handleCheckIn = async () => {
     try {
+      if (!userId) {
+        setAttendanceError('Không thể xác định người dùng. Vui lòng đăng nhập lại.');
+        return;
+      }
+
       setLocationLoading(true);
       setAttendanceError('');
 
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      await AttendanceService.checkIn({ latitude, longitude });
+      await AttendanceService.checkIn(userId, longitude, latitude);
 
       // Reload attendance history
       await loadAttendanceHistory();
@@ -217,13 +203,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const handleCheckOut = async () => {
     try {
+      if (!userId) {
+        setAttendanceError('Không thể xác định người dùng. Vui lòng đăng nhập lại.');
+        return;
+      }
+
       setLocationLoading(true);
       setAttendanceError('');
 
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      await AttendanceService.checkOut({ latitude, longitude });
+      await AttendanceService.checkOut(userId, longitude, latitude);
 
       // Reload attendance history
       await loadAttendanceHistory();
@@ -416,24 +407,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       </div>
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 md:pl-72">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 md:pl-72">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="mr-4 p-2 rounded-lg hover:bg-gray-100 md:hidden"
+                className="mr-2 p-2 rounded-lg hover:bg-gray-100 md:hidden"
               >
-                <Menu className="h-6 w-6 text-gray-700" />
+                <Menu className="h-5 w-5 text-gray-700" />
               </button>
-              <h1 className="text-xl font-bold text-gray-900">
-                {activeTab === 'transactions' ? 'Giao dịch ngân hàng' : 'Chấm công nhân viên'}
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                {activeTab === 'transactions' ? 'Giao dịch ngân hàng' : 'Chấm công'}
               </h1>
             </div>
 
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-1 sm:gap-3">
+              <div className="text-xs sm:text-sm text-gray-500 hidden xs:block">
                 {new Date().toLocaleDateString('vi-VN')}
               </div>
+              {userName && (
+                <div className="flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">Hi, {userName}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -510,7 +506,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto" onScroll={handleScroll}>
+              <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto">
                 {filteredTransactions.length > 0 ? (
                   filteredTransactions.map((transaction) => (
                     <div
@@ -573,9 +569,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     )}
                   </div>
                 )}
-                {loadingMore && (
-                  <div className="py-4 text-center text-xs text-gray-500">Đang tải thêm...</div>
-                )}
+
               </div>
             </div>
           </div>

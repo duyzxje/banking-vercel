@@ -1,4 +1,5 @@
 export interface CheckInOutData {
+    userId: string;
     longitude: number;
     latitude: number;
     notes?: string;
