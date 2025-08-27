@@ -392,6 +392,34 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  const formatDateTime = (dateTime?: string) => {
+    if (!dateTime) return 'N/A';
+
+    try {
+      // Parse the date string
+      const dateObj = new Date(dateTime);
+
+      // Check if date is valid
+      if (isNaN(dateObj.getTime())) {
+        console.error('Invalid dateTime:', dateTime);
+        return 'N/A';
+      }
+
+      // Format as DD/MM/YYYY HH:MM:SS
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    } catch (error) {
+      console.error('Error formatting dateTime:', error);
+      return 'N/A';
+    }
+  };
+
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return '--:--';
 
@@ -678,7 +706,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             {formatCurrency(transaction.soTienNumber)}
                           </p>
                           <div className="flex flex-col items-end text-xs text-gray-500 mt-1">
-                            <span className="mb-1">{formatDate(transaction.ngayGioGiaoDich)}</span>
+                            <span className="mb-1">{formatDateTime(transaction.ngayGioGiaoDich)}</span>
                             <span className="text-blue-600 font-medium">{transaction.loaiGiaoDich}</span>
                           </div>
                         </div>
@@ -898,7 +926,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       Thời gian
                     </label>
                     <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                      {formatDate(selectedTransaction.ngayGioGiaoDich)}
+                      {formatDateTime(selectedTransaction.ngayGioGiaoDich)}
                     </p>
                   </div>
 
