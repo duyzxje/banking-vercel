@@ -130,6 +130,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const filteredHistory = history.filter(record => record.user === userId);
       console.log(`Sau khi lọc: ${filteredHistory.length} bản ghi thuộc về userId hiện tại`);
 
+      // Log để debug định dạng thời gian
+      if (filteredHistory.length > 0) {
+        const firstRecord = filteredHistory[0];
+        console.log('First record details:');
+        console.log('- checkInTime:', firstRecord.checkInTime);
+        console.log('- checkInTimeFormatted:', firstRecord.checkInTimeFormatted);
+        console.log('- checkOutTime:', firstRecord.checkOutTime);
+        console.log('- checkOutTimeFormatted:', firstRecord.checkOutTimeFormatted);
+      }
+
       setAttendanceHistory(filteredHistory);
     } catch (error) {
       console.error('Failed to load attendance history:', error);
@@ -199,8 +209,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       const result = await AttendanceService.checkIn(userId, longitude, latitude);
 
-      // Show success message
-      setAttendanceSuccess('Check-in thành công lúc ' + new Date().toLocaleTimeString('vi-VN'));
+      // Show success message with current time in HH:MM:SS format
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      setAttendanceSuccess(`Check-in thành công lúc ${hours}:${minutes}:${seconds}`);
 
       // Tự động ẩn thông báo thành công sau 5 giây
       setTimeout(() => {
@@ -239,8 +253,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       const result = await AttendanceService.checkOut(userId, longitude, latitude);
 
-      // Show success message
-      setAttendanceSuccess('Check-out thành công lúc ' + new Date().toLocaleTimeString('vi-VN'));
+      // Show success message with current time in HH:MM:SS format
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      setAttendanceSuccess(`Check-out thành công lúc ${hours}:${minutes}:${seconds}`);
 
       // Tự động ẩn thông báo thành công sau 5 giây
       setTimeout(() => {
@@ -351,7 +369,71 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const formatDate = (date?: string) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleString('vi-VN');
+
+    try {
+      // Parse the date string
+      const dateObj = new Date(date);
+
+      // Check if date is valid
+      if (isNaN(dateObj.getTime())) {
+        console.error('Invalid date:', date);
+        return 'N/A';
+      }
+
+      // Format as DD/MM/YYYY
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
+  };
+
+  const formatTime = (timestamp?: string) => {
+    if (!timestamp) return '--:--';
+
+    try {
+      // Parse the timestamp string
+      const dateObj = new Date(timestamp);
+
+      // Check if date is valid
+      if (isNaN(dateObj.getTime())) {
+        console.error('Invalid timestamp:', timestamp);
+        return '--:--';
+      }
+
+      // Log the timestamp and parsed date for debugging
+      console.log('Formatting timestamp:', timestamp);
+      console.log('Parsed date object:', dateObj.toString());
+      console.log('Parsed date ISO:', dateObj.toISOString());
+      console.log('Local timezone offset (minutes):', dateObj.getTimezoneOffset());
+
+      // Check if the timestamp has checkInTimeFormatted in the API response
+      if (timestamp.includes('checkInTimeFormatted') || timestamp.includes('checkOutTimeFormatted')) {
+        console.log('Found formatted time in timestamp string');
+      }
+
+      // Use the formatted time from API if available
+      if (typeof timestamp === 'string' && timestamp.length <= 5 && timestamp.includes(':')) {
+        console.log('Using timestamp directly as it appears to be formatted already:', timestamp);
+        return timestamp;
+      }
+
+      // Get local hours and minutes (in user's timezone)
+      const hours = dateObj.getHours();
+      const minutes = dateObj.getMinutes();
+
+      // Format as HH:MM with leading zeros
+      const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      console.log('Formatted time result:', formattedTime);
+      return formattedTime;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '--:--';
+    }
   };
 
 
@@ -715,17 +797,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         attendanceHistory.map((record: AttendanceRecord) => (
                           <tr key={record._id} className={!record.isValid ? "bg-red-50" : ""}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.checkInDateFormatted || new Date(record.checkInTime).toLocaleDateString('vi-VN')}
+                              {record.checkInTime ? new Date(record.checkInTime).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.checkInTimeFormatted || new Date(record.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                               {!record.isValid && <span className="ml-2 text-xs text-red-500">(Không hợp lệ)</span>}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--')}
+                              {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.workTimeFormatted || (record.workDuration !== undefined ? `${record.workDuration} phút` : '--:--')}
+                              {record.workTimeFormatted || (record.workDuration !== undefined ? `${record.workDuration}` : '--:--')}
                             </td>
                           </tr>
                         ))

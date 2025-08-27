@@ -119,11 +119,30 @@ export const AttendanceService = {
         // Handle the new API response format
         if (result.attendance && Array.isArray(result.attendance)) {
             console.log(`Received ${result.attendance.length} attendance records from API`);
+
+            // Log the first record for debugging time format issues
+            if (result.attendance.length > 0) {
+                console.log('Sample record:', JSON.stringify(result.attendance[0]));
+            }
+
+            // Return the original records from API without any processing
+            console.log('Using original records from API without time formatting');
             return result.attendance;
         }
 
         // Fallback to the old format if needed
-        return Array.isArray(result) ? result : [];
+        if (Array.isArray(result)) {
+            // Log the first record for debugging time format issues
+            if (result.length > 0) {
+                console.log('Sample record (old format):', JSON.stringify(result[0]));
+            }
+
+            // Return the original records from API without any processing
+            console.log('Using original records from API without time formatting (old format)');
+            return result;
+        }
+
+        return [];
     },
 
     async getCurrentPosition(): Promise<GeolocationPosition> {
