@@ -47,7 +47,7 @@ export interface AttendanceSummary {
     dailyRecords?: Array<{
         date: string;           // Ngày (YYYY-MM-DD)
         dayOfWeek: number;      // Thứ trong tuần (0-6)
-        records: any[];         // Bản ghi chấm công theo ngày
+        records: AttendanceRecord[];  // Bản ghi chấm công theo ngày
     }>;
     earliestCheckIn?: {
         formatted: string;      // Giờ check-in sớm nhất (HH:MM)

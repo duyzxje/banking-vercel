@@ -115,48 +115,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  // Define loadAttendanceHistory with useCallback
-  const loadAttendanceHistory = useCallback(async () => {
-    try {
-      if (!userId) {
-        console.log('Không thể tải lịch sử chấm công: userId không tồn tại');
-        return;
-      }
-
-      setAttendanceLoading(true);
-      setAttendanceError('');
-
-      console.log(`Đang tải lịch sử chấm công cho userId: ${userId}, tháng: ${selectedMonth + 1}, năm: ${selectedYear}`);
-      const history = await AttendanceService.getAttendanceHistory(userId, selectedMonth + 1, selectedYear);
-      console.log(`Đã nhận ${history.length} bản ghi chấm công`);
-
-      // Lọc lịch sử chấm công theo userId hiện tại
-      const filteredHistory = history.filter(record => record.user === userId);
-      console.log(`Sau khi lọc: ${filteredHistory.length} bản ghi thuộc về userId hiện tại`);
-
-      // Log để debug định dạng thời gian
-      if (filteredHistory.length > 0) {
-        const firstRecord = filteredHistory[0];
-        console.log('First record details:');
-        console.log('- checkInTime:', firstRecord.checkInTime);
-        console.log('- checkInTimeFormatted:', firstRecord.checkInTimeFormatted);
-        console.log('- checkOutTime:', firstRecord.checkOutTime);
-        console.log('- checkOutTimeFormatted:', firstRecord.checkOutTimeFormatted);
-      }
-
-      setAttendanceHistory(filteredHistory);
-
-      // Load summary data
-      await loadAttendanceSummary();
-    } catch (error) {
-      console.error('Failed to load attendance history:', error);
-      setAttendanceError('Không thể tải lịch sử chấm công');
-    } finally {
-      setAttendanceLoading(false);
-    }
-  }, [userId, selectedMonth, selectedYear]);
-
-  // Define loadAttendanceSummary with useCallback
+  // Define loadAttendanceSummary first with useCallback
   const loadAttendanceSummary = useCallback(async () => {
     try {
       if (!userId) {
@@ -228,6 +187,47 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   }, [userId, selectedMonth, selectedYear]);
 
+  // Define loadAttendanceHistory with useCallback
+  const loadAttendanceHistory = useCallback(async () => {
+    try {
+      if (!userId) {
+        console.log('Không thể tải lịch sử chấm công: userId không tồn tại');
+        return;
+      }
+
+      setAttendanceLoading(true);
+      setAttendanceError('');
+
+      console.log(`Đang tải lịch sử chấm công cho userId: ${userId}, tháng: ${selectedMonth + 1}, năm: ${selectedYear}`);
+      const history = await AttendanceService.getAttendanceHistory(userId, selectedMonth + 1, selectedYear);
+      console.log(`Đã nhận ${history.length} bản ghi chấm công`);
+
+      // Lọc lịch sử chấm công theo userId hiện tại
+      const filteredHistory = history.filter(record => record.user === userId);
+      console.log(`Sau khi lọc: ${filteredHistory.length} bản ghi thuộc về userId hiện tại`);
+
+      // Log để debug định dạng thời gian
+      if (filteredHistory.length > 0) {
+        const firstRecord = filteredHistory[0];
+        console.log('First record details:');
+        console.log('- checkInTime:', firstRecord.checkInTime);
+        console.log('- checkInTimeFormatted:', firstRecord.checkInTimeFormatted);
+        console.log('- checkOutTime:', firstRecord.checkOutTime);
+        console.log('- checkOutTimeFormatted:', firstRecord.checkOutTimeFormatted);
+      }
+
+      setAttendanceHistory(filteredHistory);
+
+      // Load summary data
+      await loadAttendanceSummary();
+    } catch (error) {
+      console.error('Failed to load attendance history:', error);
+      setAttendanceError('Không thể tải lịch sử chấm công');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, [userId, selectedMonth, selectedYear, loadAttendanceSummary]);
+
   useEffect(() => {
     if (activeTab === 'attendance') {
       loadAttendanceHistory();
@@ -239,7 +239,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     if (activeTab === 'attendance') {
       loadAttendanceHistory();
     }
-  }, [selectedMonth, selectedYear, activeTab]);
+  }, [selectedMonth, selectedYear, activeTab, loadAttendanceHistory]);
 
   const loadData = async (showLoading = true) => {
     try {
@@ -293,7 +293,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      const result = await AttendanceService.checkIn(userId, longitude, latitude);
+      await AttendanceService.checkIn(userId, longitude, latitude);
 
       // Show success message with current time in HH:MM:SS format
       const now = new Date();
@@ -337,7 +337,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const position = await AttendanceService.getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
-      const result = await AttendanceService.checkOut(userId, longitude, latitude);
+      await AttendanceService.checkOut(userId, longitude, latitude);
 
       // Show success message with current time in HH:MM:SS format
       const now = new Date();
@@ -453,31 +453,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }).format(Math.abs(amount));
   };
 
-  const formatDate = (date?: string) => {
-    if (!date) return 'N/A';
-
-    try {
-      // Parse the date string
-      const dateObj = new Date(date);
-
-      // Check if date is valid
-      if (isNaN(dateObj.getTime())) {
-        console.error('Invalid date:', date);
-        return 'N/A';
-      }
-
-      // Format as DD/MM/YYYY
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const year = dateObj.getFullYear();
-
-      return `${day}/${month}/${year}`;
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'N/A';
-    }
-  };
-
+  // Format as DD/MM/YYYY HH:MM:SS
   const formatDateTime = (dateTime?: string) => {
     if (!dateTime) return 'N/A';
 
@@ -506,50 +482,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const formatTime = (timestamp?: string) => {
-    if (!timestamp) return '--:--';
-
-    try {
-      // Parse the timestamp string
-      const dateObj = new Date(timestamp);
-
-      // Check if date is valid
-      if (isNaN(dateObj.getTime())) {
-        console.error('Invalid timestamp:', timestamp);
-        return '--:--';
-      }
-
-      // Log the timestamp and parsed date for debugging
-      console.log('Formatting timestamp:', timestamp);
-      console.log('Parsed date object:', dateObj.toString());
-      console.log('Parsed date ISO:', dateObj.toISOString());
-      console.log('Local timezone offset (minutes):', dateObj.getTimezoneOffset());
-
-      // Check if the timestamp has checkInTimeFormatted in the API response
-      if (timestamp.includes('checkInTimeFormatted') || timestamp.includes('checkOutTimeFormatted')) {
-        console.log('Found formatted time in timestamp string');
-      }
-
-      // Use the formatted time from API if available
-      if (typeof timestamp === 'string' && timestamp.length <= 5 && timestamp.includes(':')) {
-        console.log('Using timestamp directly as it appears to be formatted already:', timestamp);
-        return timestamp;
-      }
-
-      // Get local hours and minutes (in user's timezone)
-      const hours = dateObj.getHours();
-      const minutes = dateObj.getMinutes();
-
-      // Format as HH:MM with leading zeros
-      const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      console.log('Formatted time result:', formattedTime);
-      return formattedTime;
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return '--:--';
-    }
-  };
-
+  // Formatting workload duration to human-readable format
   const formatWorkDuration = (minutes: number) => {
     if (minutes === 0) return '0m';
 
