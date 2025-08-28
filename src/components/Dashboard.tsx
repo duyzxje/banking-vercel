@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle, Calendar, BarChart } from 'lucide-react';
 import AttendanceService from './AttendanceService';
-import { AttendanceRecord } from './AttendanceTypes';
+import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -63,6 +63,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
   const [attendanceSuccess, setAttendanceSuccess] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -122,8 +126,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setAttendanceLoading(true);
       setAttendanceError('');
 
-      console.log(`Đang tải lịch sử chấm công cho userId: ${userId}`);
-      const history = await AttendanceService.getAttendanceHistory(userId);
+      console.log(`Đang tải lịch sử chấm công cho userId: ${userId}, tháng: ${selectedMonth + 1}, năm: ${selectedYear}`);
+      const history = await AttendanceService.getAttendanceHistory(userId, selectedMonth + 1, selectedYear);
       console.log(`Đã nhận ${history.length} bản ghi chấm công`);
 
       // Lọc lịch sử chấm công theo userId hiện tại
@@ -141,19 +145,101 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       }
 
       setAttendanceHistory(filteredHistory);
+
+      // Load summary data
+      await loadAttendanceSummary();
     } catch (error) {
       console.error('Failed to load attendance history:', error);
       setAttendanceError('Không thể tải lịch sử chấm công');
     } finally {
       setAttendanceLoading(false);
     }
-  }, [userId]);
+  }, [userId, selectedMonth, selectedYear]);
+
+  // Define loadAttendanceSummary with useCallback
+  const loadAttendanceSummary = useCallback(async () => {
+    try {
+      if (!userId) {
+        console.log('Không thể tải thống kê chấm công: userId không tồn tại');
+        return;
+      }
+
+      setSummaryLoading(true);
+
+      console.log(`Đang tải thống kê chấm công cho userId: ${userId}, tháng: ${selectedMonth + 1}, năm: ${selectedYear}`);
+      const summary = await AttendanceService.getAttendanceSummary(userId, selectedMonth + 1, selectedYear);
+      console.log('Đã nhận thống kê chấm công:', summary);
+
+      // Make sure properties exist before setting state to prevent undefined errors
+      if (summary) {
+        // Set default values for potentially missing fields
+        const processedSummary = {
+          ...summary,
+          totalDaysWorked: summary.totalDaysWorked || 0,
+          totalWorkDuration: summary.totalWorkDuration || {
+            formatted: '0h 0m',
+            minutes: 0
+          },
+          averageWorkDurationPerDay: summary.averageWorkDurationPerDay || {
+            formatted: '0h 0m',
+            minutes: 0
+          },
+          month: summary.month || selectedMonth + 1,
+          year: summary.year || selectedYear
+        };
+        setAttendanceSummary(processedSummary);
+      } else {
+        // If no summary data returned, create a default one
+        setAttendanceSummary({
+          userId: userId,
+          totalDaysWorked: 0,
+          totalWorkDuration: {
+            formatted: '0h 0m',
+            minutes: 0
+          },
+          averageWorkDurationPerDay: {
+            formatted: '0h 0m',
+            minutes: 0
+          },
+          month: selectedMonth + 1,
+          year: selectedYear
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load attendance summary:', error);
+      // We don't show error for summary loading as it's not critical
+      // Create default summary object on error
+      setAttendanceSummary({
+        userId: userId,
+        totalDaysWorked: 0,
+        totalWorkDuration: {
+          formatted: '0h 0m',
+          minutes: 0
+        },
+        averageWorkDurationPerDay: {
+          formatted: '0h 0m',
+          minutes: 0
+        },
+        month: selectedMonth + 1,
+        year: selectedYear
+      });
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [userId, selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (activeTab === 'attendance') {
       loadAttendanceHistory();
     }
   }, [activeTab, loadAttendanceHistory]);
+
+  // Effect to reload attendance history when month or year changes
+  useEffect(() => {
+    if (activeTab === 'attendance') {
+      loadAttendanceHistory();
+    }
+  }, [selectedMonth, selectedYear, activeTab]);
 
   const loadData = async (showLoading = true) => {
     try {
@@ -805,18 +891,49 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-md font-medium text-gray-900">Lịch sử chấm công</h3>
-                  <button
-                    onClick={loadAttendanceHistory}
-                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                    disabled={attendanceLoading}
-                  >
-                    <RefreshCw className={`h-3 w-3 ${attendanceLoading ? 'animate-spin' : ''}`} />
-                    <span>Làm mới</span>
-                  </button>
+                <div className="flex flex-col space-y-4 mb-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-md font-medium text-gray-900">Lịch sử chấm công</h3>
+                    <button
+                      onClick={loadAttendanceHistory}
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                      disabled={attendanceLoading}
+                    >
+                      <RefreshCw className={`h-3 w-3 ${attendanceLoading ? 'animate-spin' : ''}`} />
+                      <span>Làm mới</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Tháng</label>
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <option key={i} value={i}>{i + 1}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Năm</label>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      >
+                        {Array.from({ length: 5 }, (_, i) => {
+                          const year = new Date().getFullYear() - 2 + i;
+                          return <option key={year} value={year}>{year}</option>;
+                        })}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="overflow-x-auto hidden md:block">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -863,6 +980,146 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden">
+                  {attendanceLoading ? (
+                    <div className="text-center py-4">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-gray-500">Đang tải...</span>
+                      </div>
+                    </div>
+                  ) : attendanceHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {attendanceHistory.map((record: AttendanceRecord) => (
+                        <div
+                          key={record._id}
+                          className={`border rounded-lg shadow-sm p-4 ${!record.isValid ? "bg-red-50 border-red-100" : "bg-white border-gray-200"}`}
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <div className="text-sm font-medium text-gray-900">
+                              📅 {record.checkInTime ? new Date(record.checkInTime).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : 'N/A'}
+                            </div>
+                            {!record.isValid && (
+                              <span className="text-xs text-red-500 px-2 py-1 bg-red-100 rounded-full">
+                                Không hợp lệ
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Check In:</span>
+                              <span className="text-gray-900">
+                                {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Check Out:</span>
+                              <span className="text-gray-900">
+                                {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
+                              <span className="text-gray-500">Tổng giờ:</span>
+                              <span className="font-medium text-blue-600">
+                                {record.workTimeFormatted || (record.workDuration !== undefined ? formatWorkDuration(record.workDuration) : '--:--')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-sm text-gray-500">
+                      Chưa có dữ liệu chấm công
+                    </div>
+                  )}
+                </div>
+
+                {/* Attendance Summary Section */}
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-md font-medium text-gray-900 flex items-center">
+                      <BarChart className="h-4 w-4 mr-2 text-blue-600" />
+                      Tổng kết chấm công tháng {selectedMonth + 1}/{selectedYear}
+                    </h3>
+                  </div>
+
+                  {summaryLoading ? (
+                    <div className="text-center py-4">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-gray-500">Đang tải thống kê...</span>
+                      </div>
+                    </div>
+                  ) : attendanceSummary ? (
+                    <div>
+                      {/* Desktop Summary */}
+                      <div className="hidden md:block overflow-hidden bg-white shadow-sm rounded-lg">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-3 border-b border-gray-200">
+                          <p className="text-sm font-medium text-gray-700">Tổng kết chấm công tháng {attendanceSummary.month}/{attendanceSummary.year}</p>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+                          <div className="p-3 bg-blue-50 rounded-lg">
+                            <p className="text-xs text-gray-500 mb-1">Tổng số ngày làm việc</p>
+                            <p className="text-xl font-bold text-blue-700">{attendanceSummary.totalDaysWorked || 0} <span className="text-sm font-normal">ngày</span></p>
+                          </div>
+
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <p className="text-xs text-gray-500 mb-1">Tổng thời gian làm việc</p>
+                            <p className="text-xl font-bold text-green-700">{attendanceSummary.totalWorkDuration?.formatted || '0h 0m'}</p>
+                            <p className="text-xs text-gray-500 mt-1">{((attendanceSummary.totalWorkDuration?.minutes || 0) / 60).toFixed(1)} giờ</p>
+                          </div>
+
+                          <div className="p-3 bg-purple-50 rounded-lg">
+                            <p className="text-xs text-gray-500 mb-1">Giờ làm trung bình</p>
+                            <p className="text-xl font-bold text-purple-700">{attendanceSummary.averageWorkDurationPerDay?.formatted || '0h 0m'}</p>
+                          </div>
+
+
+                        </div>
+                      </div>
+
+                      {/* Mobile Summary */}
+                      <div className="md:hidden">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 text-blue-600 mr-2" />
+                              <p className="text-sm font-medium text-gray-700">Tổng kết tháng {attendanceSummary.month}/{attendanceSummary.year}</p>
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-3">
+                            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                              <span className="text-sm text-gray-600">Số ngày làm việc:</span>
+                              <span className="text-sm font-medium">{attendanceSummary.totalDaysWorked || 0} ngày</span>
+                            </div>
+
+
+
+                            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                              <span className="text-sm text-gray-600">Tổng thời gian:</span>
+                              <span className="text-sm font-medium text-blue-600">{attendanceSummary.totalWorkDuration?.formatted || '0h 0m'}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                              <span className="text-sm text-gray-600">Trung bình:</span>
+                              <span className="text-sm font-medium">{attendanceSummary.averageWorkDurationPerDay?.formatted || '0h 0m'}</span>
+                            </div>
+
+
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500">Không có dữ liệu thống kê cho tháng {selectedMonth + 1}/{selectedYear}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

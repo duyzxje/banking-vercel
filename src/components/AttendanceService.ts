@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckInOutData, AttendanceRecord } from './AttendanceTypes';
+import { CheckInOutData, AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
 
 const API_URL = 'https://worktime-dux3.onrender.com/api';
 
@@ -87,17 +87,29 @@ export const AttendanceService = {
         return result;
     },
 
-    async getAttendanceHistory(userId: string): Promise<AttendanceRecord[]> {
+    async getAttendanceHistory(userId: string, month?: number, year?: number): Promise<AttendanceRecord[]> {
         const token = localStorage.getItem('token');
         if (!token) {
             throw new Error('Unauthorized');
         }
 
-        const url = `${API_URL}/attendance/${userId}`;
+        // Build URL with optional month/year query parameters
+        let url = `${API_URL}/attendance/${userId}`;
+
+        // Add month and year as query parameters if they exist
+        const queryParams = [];
+        if (month) queryParams.push(`month=${month}`);
+        if (year) queryParams.push(`year=${year}`);
+
+        if (queryParams.length > 0) {
+            url += `?${queryParams.join('&')}`;
+        }
 
         // Log request details
         console.log('Fetching attendance history:', {
             userId,
+            month,
+            year,
             url
         });
 
@@ -158,6 +170,50 @@ export const AttendanceService = {
                 maximumAge: 0
             });
         });
+    },
+
+    async getAttendanceSummary(userId: string, month?: number, year?: number): Promise<AttendanceSummary> {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Unauthorized');
+        }
+
+        // Build URL with optional month/year query parameters
+        let url = `${API_URL}/attendance/${userId}/summary`;
+
+        // Add month and year as query parameters if they exist
+        const queryParams = [];
+        if (month) queryParams.push(`month=${month}`);
+        if (year) queryParams.push(`year=${year}`);
+
+        if (queryParams.length > 0) {
+            url += `?${queryParams.join('&')}`;
+        }
+
+        // Log request details
+        console.log('Fetching attendance summary:', {
+            userId,
+            month,
+            year,
+            url
+        });
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Fetch attendance summary failed:', errorData);
+            throw new Error(errorData.message || 'Failed to fetch attendance summary');
+        }
+
+        const result = await response.json();
+        console.log('Attendance summary response:', result);
+
+        return result.summary || result;
     }
 };
 
