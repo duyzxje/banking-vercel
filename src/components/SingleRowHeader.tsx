@@ -14,7 +14,7 @@ const SingleRowHeader: React.FC<SingleRowHeaderProps> = ({ date }) => {
     const dayNumber = format(date, 'dd/MM', { locale: vi });
 
     // Lấy thứ, định dạng "Thứ X" hoặc "CN"
-    let dayName = format(date, 'EEEE', { locale: vi })
+    const dayName = format(date, 'EEEE', { locale: vi })
         .replace('thứ ', 'Thứ ')
         .replace('chủ nhật', 'CN');
 

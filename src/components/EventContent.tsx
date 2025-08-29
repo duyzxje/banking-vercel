@@ -9,7 +9,7 @@ interface EventContentProps {
 
 // Component hiển thị nội dung của event (ca làm việc)
 const EventContent: React.FC<EventContentProps> = ({ event }) => {
-    const { title, start, end, isLive, status } = event;
+    const { title, start, end, isLive } = event;
 
     // Format thời gian từ Date
     const formatTime = (date: Date) => {

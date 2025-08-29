@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle, Calendar, BarChart, CalendarClock } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, CalendarClock } from 'lucide-react';
 import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';

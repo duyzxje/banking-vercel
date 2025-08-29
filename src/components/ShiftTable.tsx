@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -48,7 +48,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         6: 'off',
         7: 'off'
     });
-    const [loading, setLoading] = useState<boolean>(false);
+    // const [loading, setLoading] = useState<boolean>(false);
     const [message, setMessage] = useState<string>('');
     const [messageType, setMessageType] = useState<PopupType>('');
 
