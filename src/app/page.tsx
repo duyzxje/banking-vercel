@@ -16,7 +16,7 @@ export default function Home() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await fetch('/api/auth/verify', {
+        const response = await fetch('https://worktime-dux3.onrender.com/api/auth/verify', {
           headers: {
             'Authorization': `Bearer ${token}`
           }

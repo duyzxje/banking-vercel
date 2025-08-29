@@ -1,5 +1,13 @@
 export type ShiftType = 'morning' | 'noon' | 'afternoon' | 'evening' | 'off';
 
+// Cấu trúc mới cho phép đăng ký nhiều ca trong một ngày
+export type DayShifts = {
+    morning?: boolean;
+    noon?: boolean;
+    afternoon?: boolean;
+    evening?: boolean;
+};
+
 export interface ShiftSlot {
     userId: string;
     username: string;
@@ -12,7 +20,7 @@ export interface EmployeeShift {
     username: string;
     shifts: {
         // key là thứ (1-7, 1 = thứ 2, 7 = chủ nhật)
-        [day: number]: ShiftType;
+        [day: number]: DayShifts;
     };
 }
 

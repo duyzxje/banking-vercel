@@ -90,6 +90,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }, [transactions, filters]);
 
   const [userId, setUserId] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('');
 
   const loadUserProfile = async () => {
     try {
@@ -104,12 +105,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         'Content-Type': 'application/json'
       };
 
-      const response = await fetch('/api/auth/verify', { headers });
+      const response = await fetch('https://worktime-dux3.onrender.com/api/auth/verify', { headers });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
           setUserName(data.user.name || data.user.username || 'User');
           setUserId(data.user.id || '');
+          setUserRole(data.user.role || 'staff');
         }
       }
     } catch (error) {
@@ -259,16 +261,34 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         'Content-Type': 'application/json'
       };
 
-      // Fetch all transactions
-      const transactionsResponse = await fetch(`/api/transactions?limit=0`, { headers });
+      // Fetch all transactions from API
+      try {
+        console.log('Fetching transactions from API with headers:', headers);
+        const transactionsResponse = await fetch(`/api/transactions?limit=0`, {
+          headers,
+          cache: 'no-store'
+        });
 
-      if (transactionsResponse.ok) {
-        const transactionsData = await transactionsResponse.json();
-        setTransactions(transactionsData.transactions || []);
-        setLastUpdateTime(new Date());
-      } else {
-        setError('Không thể tải dữ liệu');
+        if (transactionsResponse.ok) {
+          const transactionsData = await transactionsResponse.json();
+          console.log('Transactions data:', transactionsData);
+          // Handle nested structure where transactions are inside data object
+          const transactions = transactionsData.data?.transactions || transactionsData.transactions || [];
+          console.log('Extracted transactions:', transactions.length);
+          setTransactions(transactions);
+          setLastUpdateTime(new Date());
+        } else {
+          const errorText = await transactionsResponse.text();
+          console.error(`Failed to load transactions (${transactionsResponse.status}):`, errorText);
+          setError(`Không thể tải dữ liệu giao dịch: ${transactionsResponse.status}`);
+        }
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+        setError('Lỗi kết nối đến API giao dịch');
       }
+      // } else {
+      //   setError('Không thể tải dữ liệu');
+      // }
     } catch (error) {
       console.error('Load data error:', error);
       setError('Lỗi kết nối');
@@ -380,15 +400,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       };
 
       // Chỉ lấy 5 giao dịch mới nhất để kiểm tra
+      console.log('Checking for new transactions');
       const response = await fetch('/api/transactions?limit=5', {
-        headers
+        headers,
+        cache: 'no-store'
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Check new transactions response:', data);
 
-        if (data.success && data.transactions.length > 0) {
-          const incoming: Transaction[] = data.transactions as Transaction[];
+        // Handle nested structure where transactions are inside data object
+        const transactions = data.data?.transactions || data.transactions || [];
+
+        if (transactions && transactions.length > 0) {
+          console.log(`Found ${transactions.length} transactions to check`);
+          const incoming: Transaction[] = transactions as Transaction[];
           setTransactions(prev => {
             const existingIds = new Set(prev.map(t => t._id));
             const newOnes = incoming.filter(t => !existingIds.has(t._id));
@@ -400,9 +427,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               return true;
             });
             if (dedupNew.length === 0) return prev;
+            console.log(`Adding ${dedupNew.length} new transactions`);
             return [...dedupNew, ...prev];
           });
         }
+      } else {
+        console.error('Failed to check for new transactions:', await response.text());
       }
       // Dù có dữ liệu mới hay không, luôn cập nhật mốc thời gian "Cập nhật:" để người dùng biết lần đồng bộ gần nhất
       setLastUpdateTime(new Date());
@@ -531,7 +561,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 md:pl-64">
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -541,7 +571,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:fixed md:z-10`}>
+      <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:z-10`}>
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -609,8 +639,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </nav>
       </div>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 md:ml-64">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <button
@@ -638,7 +668,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               </div>
               {userName && (
                 <div className="flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
-                  <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">Hi, {userName}</span>
+                  <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">
+                    Hi, {userName} {userRole === 'admin' && <span className="text-xs text-red-600 ml-1">(Admin)</span>}
+                  </span>
                 </div>
               )}
             </div>
@@ -647,7 +679,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:ml-64 transition-all duration-300">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 transition-all duration-300">
         {activeTab === 'home' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 text-center">
@@ -697,7 +729,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <ShiftTable
             userId={userId}
             userName={userName}
-            isAdmin={false}
+            isAdmin={userRole === 'admin'}
           />
         )}
 

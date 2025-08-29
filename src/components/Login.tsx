@@ -30,7 +30,7 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('https://worktime-dux3.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,7 +41,7 @@ export default function Login({ onLogin }: LoginProps) {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('token', data.data.token);
         onLogin();
       } else {
         setError(data.message);
@@ -64,7 +64,7 @@ export default function Login({ onLogin }: LoginProps) {
             Đăng nhập
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Truy cập hệ thống quản lý giao dịch ngân hàng
+            Truy cập hệ vào GiorlinApp
           </p>
         </div>
 

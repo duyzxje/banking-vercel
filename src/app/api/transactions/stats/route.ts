@@ -1,99 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
-import connectDB from '@/lib/mongodb';
-import Transaction from '@/lib/models/Transaction';
 
-// Middleware to verify JWT token
-async function verifyToken(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-
-  if (!token) {
-    throw new Error('Token không được cung cấp');
-  }
-
-  try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'banking-secret-key-vercel-2025'
-    ) as JwtPayload;
-    return decoded;
-  } catch {
-    throw new Error('Token không hợp lệ');
-  }
-}
+const API_URL = 'https://worktime-dux3.onrender.com/api';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    await verifyToken(request);
+    const authHeader = request.headers.get('authorization');
 
-    await connectDB();
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Total transactions
-    const totalTransactions = await Transaction.countDocuments();
-
-    // Total incoming amount (số tiền dương)
-    const incomingStats = await Transaction.aggregate([
-      { $match: { soTienNumber: { $gt: 0 } } },
-      { $group: { _id: null, total: { $sum: '$soTienNumber' } } }
-    ]);
-    const totalIncoming = incomingStats[0]?.total || 0;
-
-    // Today's transactions
-    const todayTransactions = await Transaction.countDocuments({
-      ngayGioGiaoDich: { $gte: today, $lt: tomorrow }
-    });
-
-    // Today's amount
-    const todayStats = await Transaction.aggregate([
-      {
-        $match: {
-          ngayGioGiaoDich: { $gte: today, $lt: tomorrow },
-          soTienNumber: { $gt: 0 }
-        }
-      },
-      { $group: { _id: null, total: { $sum: '$soTienNumber' } } }
-    ]);
-    const todayAmount = todayStats[0]?.total || 0;
-
-    // Recent transactions by bank
-    const bankStats = await Transaction.aggregate([
-      { $match: { soTienNumber: { $gt: 0 } } },
-      { $group: { _id: '$nganHangChuyen', count: { $sum: 1 }, total: { $sum: '$soTienNumber' } } },
-      { $sort: { count: -1 } },
-      { $limit: 5 }
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      stats: {
-        totalTransactions,
-        totalIncoming,
-        todayTransactions,
-        todayAmount,
-        bankStats
-      }
-    });
-
-  } catch (error) {
-    console.error('Get stats error:', error);
-
-    if (error instanceof Error && error.message.includes('Token')) {
+    if (!authHeader) {
       return NextResponse.json({
         success: false,
-        message: error.message
+        message: 'Token không được cung cấp'
       }, { status: 401 });
     }
 
+    // Forward the request to worktime API
+    const response = await fetch(`${API_URL}/transactions/stats`, {
+      headers: {
+        'Authorization': authHeader
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Fetch transaction stats failed:', errorData);
+      return NextResponse.json({
+        success: false,
+        message: errorData.message || 'Lỗi khi tải thống kê giao dịch'
+      }, { status: response.status });
+    }
+
+    const result = await response.json();
+    return NextResponse.json(result);
+
+  } catch (error) {
+    console.error('Get transaction stats error:', error);
+
     return NextResponse.json({
       success: false,
-      message: 'Lỗi khi tải thống kê'
+      message: 'Lỗi khi tải thống kê giao dịch'
     }, { status: 500 });
   }
 }
