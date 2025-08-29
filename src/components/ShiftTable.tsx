@@ -10,14 +10,12 @@ import {
     EmployeeShift,
     DayShifts,
     DAY_NAMES,
-    SHIFT_LABELS,
-    SHIFT_TIMES
+    SHIFT_LABELS
 } from './ShiftTableTypes';
 import Popup, { PopupType } from './Popup';
 
 const ShiftTable: React.FC<ShiftTableProps> = ({
     userId,
-    userName,
     isAdmin,
     weekStartDate
 }) => {
@@ -26,7 +24,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         isOpen: boolean,
         employeeId: string,
         day: number,
-        dayShifts?: any,
+        dayShifts?: DayShifts | null,
         isLive?: boolean,
         position: { x: number, y: number }
     }>({
@@ -38,7 +36,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     const [currentDate, setCurrentDate] = useState<Date>(weekStartDate || new Date());
     const [employees, setEmployees] = useState<EmployeeShift[]>([]);
     const [liveEvents, setLiveEvents] = useState<Record<number, ShiftType>>({});
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
 
     // Format ngày theo định dạng YYYY-MM-DD
     const formatDateForAPI = (date: Date): string => {
@@ -232,43 +230,12 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         }
     };
 
-    // Lấy class cho checkbox theo loại ca
-    const getShiftCheckboxClass = (isChecked: boolean, shiftType: ShiftType) => {
-        let bgColor = '';
+    // Lấy class cho checkbox theo loại ca - removed unused function
 
-        if (isChecked) {
-            switch (shiftType) {
-                case 'morning': bgColor = 'bg-blue-200 border-blue-400'; break;
-                case 'noon': bgColor = 'bg-green-200 border-green-400'; break;
-                case 'afternoon': bgColor = 'bg-yellow-200 border-yellow-400'; break;
-                case 'evening': bgColor = 'bg-purple-200 border-purple-400'; break;
-                default: bgColor = 'bg-gray-100 border-gray-300';
-            }
-            return `${bgColor} text-gray-800 font-medium`;
-        } else {
-            return 'bg-white border-gray-300 hover:bg-gray-50';
-        }
-    };
-
-    // Class cho hàng ca Live
-    const getLiveCellClass = (shift: ShiftType) => {
-        const baseClass = "text-xs p-2 text-center border border-gray-200";
-
-        if (!isAdmin) return `${baseClass} cursor-not-allowed`;
-
-        const shiftClasses = {
-            morning: "bg-red-200 hover:bg-red-300 text-gray-800 font-medium",
-            noon: "bg-red-200 hover:bg-red-300 text-gray-800 font-medium",
-            afternoon: "bg-red-200 hover:bg-red-300 text-gray-800 font-medium",
-            evening: "bg-red-200 hover:bg-red-300 text-gray-800 font-medium",
-            off: "bg-gray-100 hover:bg-gray-200 text-gray-800"
-        };
-
-        return `${baseClass} ${shiftClasses[shift]} ${isAdmin ? 'cursor-pointer' : 'cursor-not-allowed'}`;
-    };
+    // Class cho hàng ca Live - removed unused function
 
     // Hàm mở modal chọn ca
-    const openShiftModal = (employeeId: string, day: number, dayShifts: any, isLive: boolean = false, event: React.MouseEvent) => {
+    const openShiftModal = (employeeId: string, day: number, dayShifts: DayShifts | null, isLive: boolean = false, event: React.MouseEvent) => {
         // Tính toán vị trí hiển thị modal dựa trên vị trí click
         const rect = event.currentTarget.getBoundingClientRect();
         const x = rect.left + window.scrollX;
@@ -290,7 +257,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     };
 
     // Render các ca làm việc với giao diện mới theo yêu cầu
-    const renderShiftCell = (employeeId: string, day: number, dayShifts: any) => {
+    const renderShiftCell = (employeeId: string, day: number, dayShifts: DayShifts) => {
         const isEditable = (employeeId === userId && !isAdmin) || isAdmin;
         const isLiveRow = employeeId === 'live';
 

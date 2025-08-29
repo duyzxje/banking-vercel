@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
           success: false,
           message: errorData.message || 'Lỗi khi tải danh sách giao dịch'
         }, { status: response.status });
-      } catch (e) {
+      } catch {
         return NextResponse.json({
           success: false,
           message: 'Lỗi khi tải danh sách giao dịch'
