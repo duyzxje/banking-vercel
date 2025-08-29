@@ -1,0 +1,115 @@
+/* Mobile optimizations for react-big-calendar */
+@media (max-width: 768px) {
+
+    /* Make header more compact */
+    .rbc-calendar .rbc-toolbar {
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .rbc-calendar .rbc-toolbar-label {
+        margin: 8px 0;
+        padding: 0;
+        font-size: 16px;
+    }
+
+    /* Hide toolbar buttons (Today, Back, Next) */
+    .rbc-calendar .rbc-btn-group {
+        display: none !important;
+    }
+
+    /* Make time slots and events more readable on mobile */
+    .rbc-calendar .rbc-time-view {
+        font-size: 12px;
+    }
+
+    /* Smaller time gutter width */
+    .rbc-calendar .rbc-time-gutter {
+        width: 50px;
+    }
+
+    /* Increase column width for better readability */
+    .rbc-calendar .rbc-time-header-content {
+        min-width: 70px;
+        /* Tăng độ rộng tối thiểu của cột */
+    }
+
+    .rbc-calendar .rbc-time-header-cell {
+        min-width: 70px;
+    }
+
+    /* Adjustments for time slots */
+    .rbc-calendar .rbc-timeslot-group {
+        min-height: 50px;
+        /* Tăng chiều cao của mỗi ô thời gian */
+    }
+
+    /* Make events more tappable and readable */
+    .rbc-calendar .rbc-event {
+        padding: 4px 5px;
+        min-height: 40px;
+        border-radius: 4px;
+        margin: 1px;
+    }
+
+    /* Improve event content display */
+    .rbc-calendar .rbc-event-content {
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Custom event content */
+    .event-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+    }
+
+    /* Optimize day header styles */
+    .rbc-calendar .rbc-header {
+        padding: 5px 2px;
+        height: auto;
+        min-height: 40px;
+    }
+
+    /* Fix for better touch interactions */
+    .rbc-calendar .rbc-day-slot .rbc-events-container {
+        margin-right: 0;
+    }
+
+    /* Optimize event resizing handles for touch */
+    .rbc-calendar .rbc-addons-dnd-resize-ns-anchor .rbc-addons-dnd-resize-ns-icon {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* Additional styles for two-row headers */
+.rbc-calendar .rbc-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* Enable horizontal scrolling for mobile calendar view */
+.rbc-calendar {
+    width: 100%;
+    overflow-x: auto !important;
+}
+
+/* Ensure time columns have enough width */
+.rbc-time-column {
+    min-width: 85px !important;
+}
+
+/* Make events more visible */
+.rbc-event {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+}

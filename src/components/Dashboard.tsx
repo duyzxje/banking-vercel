@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle, Calendar, BarChart } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, AlertCircle, Calendar, BarChart, CalendarClock } from 'lucide-react';
+import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
+import ShiftTable from './ShiftTable';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -58,7 +60,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'attendance'>('transactions');
+  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts'>('home');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -546,7 +548,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <CreditCard className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Giorlin App</h1>
+              <h1 className="text-xl font-bold text-gray-900">Giorlin</h1>
               <p className="text-xs text-gray-500">Management System</p>
             </div>
           </div>
@@ -556,10 +558,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <ul className="space-y-2">
             <li>
               <button
+                onClick={() => { setActiveTab('home'); setSidebarOpen(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <Home className="h-5 w-5" />
+                <span>Trang chủ</span>
+                {activeTab === 'home' && <ChevronRight className="h-4 w-4 ml-auto" />}
+              </button>
+            </li>
+            <li>
+              <button
                 onClick={() => { setActiveTab('transactions'); setSidebarOpen(false); }}
                 className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                <Home className="h-5 w-5" />
+                <CreditCard className="h-5 w-5" />
                 <span>Giao dịch</span>
                 {activeTab === 'transactions' && <ChevronRight className="h-4 w-4 ml-auto" />}
               </button>
@@ -576,6 +588,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             </li>
             <li>
               <button
+                onClick={() => { setActiveTab('shifts'); setSidebarOpen(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'shifts' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <CalendarClock className="h-5 w-5" />
+                <span>Đăng ký ca</span>
+                {activeTab === 'shifts' && <ChevronRight className="h-4 w-4 ml-auto" />}
+              </button>
+            </li>
+            <li>
+              <button
                 onClick={handleLogout}
                 className="w-full flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
@@ -587,8 +609,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </nav>
       </div>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 md:pl-72">
+      <header className="bg-white shadow-sm border-b border-gray-200 md:ml-64">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <button
@@ -598,12 +620,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 <Menu className="h-5 w-5 text-gray-700" />
               </button>
               <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                {activeTab === 'transactions' ? 'Giao dịch ngân hàng' : 'Chấm công'}
+                {
+                  activeTab === 'home'
+                    ? 'Trang chủ'
+                    : activeTab === 'transactions'
+                      ? 'Banking'
+                      : activeTab === 'attendance'
+                        ? 'Chấm công'
+                        : 'Đăng ký ca'
+                }
               </h1>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-3">
-              <div className="text-xs sm:text-sm text-gray-500 hidden xs:block">
+              <div className="text-xs sm:text-sm text-gray-800">
                 {new Date().toLocaleDateString('vi-VN')}
               </div>
               {userName && (
@@ -617,7 +647,60 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:ml-64 transition-all duration-300 md:pl-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 md:ml-64 transition-all duration-300">
+        {activeTab === 'home' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 text-center">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-6">Chào mừng đến với Giorlin</h2>
+              <p className="text-gray-600 mb-4 sm:mb-8">Chọn một chức năng để tiếp tục</p>
+
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <button
+                  onClick={() => setActiveTab('transactions')}
+                  className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg p-3 sm:p-5 transition-all duration-200 border border-blue-200 hover:border-blue-300 hover:shadow-md"
+                >
+                  <CreditCard className="h-8 w-8 sm:h-10 sm:w-10 mb-2" />
+                  <h3 className="text-base sm:text-lg font-semibold">Banking</h3>
+                  <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-gray-600 hidden sm:block">Quản lý giao dịch</p>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('attendance')}
+                  className="flex flex-col items-center justify-center bg-green-50 hover:bg-green-100 text-green-700 rounded-lg p-3 sm:p-5 transition-all duration-200 border border-green-200 hover:border-green-300 hover:shadow-md"
+                >
+                  <Clock className="h-8 w-8 sm:h-10 sm:w-10 mb-2" />
+                  <h3 className="text-base sm:text-lg font-semibold">Chấm công</h3>
+                  <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-gray-600 hidden sm:block">Quản lý chấm công</p>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('shifts')}
+                  className="flex flex-col items-center justify-center bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg p-3 sm:p-5 transition-all duration-200 border border-purple-200 hover:border-purple-300 hover:shadow-md"
+                >
+                  <CalendarClock className="h-8 w-8 sm:h-10 sm:w-10 mb-2" />
+                  <h3 className="text-base sm:text-lg font-semibold">Đăng ký ca</h3>
+                  <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-gray-600 hidden sm:block">Đăng ký ca làm</p>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-800 mb-4">Thông báo gần đây</h3>
+              <div className="p-4 bg-blue-50 rounded-lg text-blue-700 text-center">
+                <p>Không có thông báo mới</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'shifts' && (
+          <ShiftTable
+            userId={userId}
+            userName={userName}
+            isAdmin={false}
+          />
+        )}
+
         {activeTab === 'transactions' && (
           <div className="space-y-4 sm:space-y-6">
             {/* Search Bar */}
@@ -650,11 +733,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             </div>
 
             {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-600">{error}</p>
-              </div>
-            )}
+            <Popup
+              message={error}
+              type="error"
+              onClose={() => setError('')}
+            />
 
             {/* Transactions List */}
             <div className="bg-white rounded-lg shadow-lg border border-gray-200">
@@ -804,23 +887,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   </button>
                 </div>
 
-                {attendanceError && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                    <p className="text-sm text-red-600">{attendanceError}</p>
-                  </div>
-                )}
+                <Popup
+                  message={attendanceError}
+                  type="error"
+                  onClose={() => setAttendanceError('')}
+                />
 
-                {attendanceSuccess && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
-                    <div className="h-5 w-5 text-green-500 flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-green-600">{attendanceSuccess}</p>
-                  </div>
-                )}
+                <Popup
+                  message={attendanceSuccess}
+                  type="success"
+                  onClose={() => setAttendanceSuccess('')}
+                />
               </div>
 
               <div>
