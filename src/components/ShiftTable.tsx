@@ -36,7 +36,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     const [currentDate, setCurrentDate] = useState<Date>(weekStartDate || new Date());
     const [employees, setEmployees] = useState<EmployeeShift[]>([]);
     const [liveEvents, setLiveEvents] = useState<Record<number, ShiftType>>({});
-    const [loading, setLoading] = useState<boolean>(false);
+    // Removed unused loading state
 
     // Format ngày theo định dạng YYYY-MM-DD
     const formatDateForAPI = (date: Date): string => {
@@ -50,7 +50,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         const thisWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Thứ 2
 
         try {
-            setLoading(true);
             const token = localStorage.getItem('token');
             if (!token) return;
 
@@ -99,11 +98,8 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
             console.error('Failed to load shift data:', error);
             setMessage('Không thể tải dữ liệu ca làm việc');
             setMessageType('error');
-        } finally {
-            setLoading(false);
         }
     }, [currentDate]); // Only depend on currentDate
-    // const [loading, setLoading] = useState<boolean>(false);
     const [message, setMessage] = useState<string>('');
     const [messageType, setMessageType] = useState<PopupType>('');
 
@@ -156,7 +152,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                         body: JSON.stringify({
                             day,
                             shiftType,
-                            weekStartDate: formatDateForAPI(weekStart)
+                            weekStartDate: formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))
                         })
                     });
 
@@ -190,7 +186,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                 userId: empUserId,
                                 day,
                                 shiftType,
-                                weekStartDate: formatDateForAPI(weekStart)
+                                weekStartDate: formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))
                             })
                         });
 
@@ -524,7 +520,12 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                             {/* Các ngày trong tuần */}
                             {[1, 2, 3, 4, 5, 6, 7].map(day => (
                                 <td key={day} className="whitespace-nowrap border border-gray-300">
-                                    {renderShiftCell('live', day, liveEvents[day])}
+                                    {renderShiftCell('live', day, {
+                                        morning: liveEvents[day] === 'morning',
+                                        noon: liveEvents[day] === 'noon',
+                                        afternoon: liveEvents[day] === 'afternoon',
+                                        evening: liveEvents[day] === 'evening'
+                                    })}
                                 </td>
                             ))}
 
