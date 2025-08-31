@@ -90,7 +90,12 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
             if (!token || !selectedEmployee) return;
 
             // Prepare update data (exclude password if empty)
-            const updateData: any = {
+            const updateData: {
+                name: string;
+                email: string;
+                role: 'admin' | 'staff';
+                password?: string;
+            } = {
                 name: formData.name,
                 email: formData.email,
                 role: formData.role

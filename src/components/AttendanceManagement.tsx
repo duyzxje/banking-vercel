@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface AttendanceRecord {
@@ -40,9 +40,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
     useEffect(() => {
         loadEmployeesAttendance();
-    }, [selectedMonth]);
+    }, [selectedMonth, loadEmployeesAttendance]);
 
-    const loadEmployeesAttendance = async () => {
+    const loadEmployeesAttendance = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             if (!token) return;
@@ -71,7 +71,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedMonth]);
 
     const loadEmployeeAttendance = async (employee: EmployeeAttendance) => {
         try {

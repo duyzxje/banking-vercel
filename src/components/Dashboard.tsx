@@ -95,19 +95,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load admin overview stats when user role is admin
-  useEffect(() => {
-    if (userRole === 'admin') {
-      loadAdminOverviewStats();
-    }
-  }, [userRole]);
 
-  // Refresh admin stats when switching to admin tab
-  useEffect(() => {
-    if (activeTab === 'admin' && userRole === 'admin') {
-      loadAdminOverviewStats();
-    }
-  }, [activeTab, userRole]);
 
   useEffect(() => {
     applyFilters();
@@ -142,7 +130,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Load admin overview stats
-  const loadAdminOverviewStats = async () => {
+  const loadAdminOverviewStats = useCallback(async () => {
     if (userRole !== 'admin') return;
 
     try {
@@ -177,7 +165,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     } finally {
       setOverviewLoading(false);
     }
-  };
+  }, [userRole]);
+
+  // Load admin overview stats when user role is admin
+  useEffect(() => {
+    if (userRole === 'admin') {
+      loadAdminOverviewStats();
+    }
+  }, [userRole, loadAdminOverviewStats]);
+
+  // Refresh admin stats when switching to admin tab
+  useEffect(() => {
+    if (activeTab === 'admin' && userRole === 'admin') {
+      loadAdminOverviewStats();
+    }
+  }, [activeTab, userRole, loadAdminOverviewStats]);
 
   // Define loadAttendanceSummary first with useCallback
   const loadAttendanceSummary = useCallback(async () => {
