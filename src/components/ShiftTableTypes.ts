@@ -19,6 +19,7 @@ export interface ShiftSlot {
 export interface EmployeeShift {
     userId: string;
     username: string;
+    name: string;
     shifts: {
         // key là thứ (1-7, 1 = thứ 2, 7 = chủ nhật)
         [day: number]: DayShifts;

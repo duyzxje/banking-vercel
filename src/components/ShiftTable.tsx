@@ -638,7 +638,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                             .map((employee) => (
                                 <tr key={employee.userId} className={employee.userId === userId ? "bg-blue-100" : ""}>
                                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
-                                        {employee.username} {employee.userId === userId && " (Bạn)"}
+                                        {employee.name} {employee.userId === userId && " (Bạn)"}
                                     </td>
 
                                     {/* Các ngày trong tuần */}
@@ -706,6 +706,13 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
                         {modalInfo.isLive ? (
                             <div className="space-y-2">
+                                {/* Hiển thị thứ và ngày tháng cho modal Live */}
+                                <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-sm text-gray-600">
+                                        {DAY_NAMES[modalInfo.day - 1]} - {format(addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), modalInfo.day - 1), 'dd/MM/yyyy', { locale: vi })}
+                                    </p>
+                                </div>
+
                                 {Object.entries(SHIFT_LABELS).map(([value, label]) => {
                                     const currentShifts = liveEvents[modalInfo.day] || [];
                                     const isSelected = currentShifts.includes(value as ShiftType);
@@ -853,14 +860,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                     </>
                                 )}
 
-                                <div className="flex justify-end mt-4">
-                                    <button
-                                        className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 text-sm font-medium"
-                                        onClick={closeModal}
-                                    >
-                                        Đóng
-                                    </button>
-                                </div>
+
                             </div>
                         )}
                     </div>

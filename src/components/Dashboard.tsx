@@ -109,7 +109,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
-          setUserName(data.user.name || data.user.username || 'User');
+          setUserName(data.user.name || 'User');
           setUserId(data.user.id || '');
           setUserRole(data.user.role || 'staff');
         }
@@ -681,10 +681,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 {new Date().toLocaleDateString('vi-VN')}
               </div>
               {userName && (
-                <div className="flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
-                  <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">
-                    Hi, {userName} {userRole === 'admin' && <span className="text-xs text-red-600 ml-1">(Admin)</span>}
+                <div className="flex flex-col sm:flex-row sm:items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  <span className="text-xs sm:text-sm font-medium text-center sm:text-left">
+                    Hi, {userName}
                   </span>
+                  {userRole === 'admin' && (
+                    <span className="text-xs text-red-600 text-center sm:ml-1 sm:text-left">
+                      (Admin)
+                    </span>
+                  )}
                 </div>
               )}
             </div>
