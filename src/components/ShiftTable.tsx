@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Calendar, Plus, X } from 'lucide-react';
-import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
     ShiftTableProps,
@@ -35,7 +35,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     });
     const [currentDate, setCurrentDate] = useState<Date>(weekStartDate || new Date());
     const [employees, setEmployees] = useState<EmployeeShift[]>([]);
-    const [liveEvents, setLiveEvents] = useState<Record<number, ShiftType>>({});
+    const [liveEvents, setLiveEvents] = useState<Record<number, ShiftType[]>>({});
     // Removed unused loading state
 
     // Format ngày theo định dạng YYYY-MM-DD
@@ -90,7 +90,10 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
             if (liveResponse.ok) {
                 const liveData = await liveResponse.json();
                 if (liveData.success && liveData.data) {
-                    setLiveEvents(liveData.data.schedule || {});
+                    // API đã trả về cấu trúc mới (array of shifts), sử dụng trực tiếp
+                    const schedule = liveData.data.schedule || {};
+                    console.log('Live schedule from API:', schedule);
+                    setLiveEvents(schedule);
                 }
             }
 
@@ -119,17 +122,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     }, [currentDate]);
 
 
-    // Tính tổng số buổi làm việc của mỗi nhân viên
-    const calculateTotalShifts = (employeeShifts: Record<number, DayShifts>): number => {
-        let total = 0;
-        Object.values(employeeShifts).forEach(dayShift => {
-            if (dayShift.morning) total++;
-            if (dayShift.noon) total++;
-            if (dayShift.afternoon) total++;
-            if (dayShift.evening) total++;
-        });
-        return total;
-    };
+
 
     // Thay đổi ca làm việc
     const handleShiftToggle = async (empUserId: string, day: number, shiftType: ShiftType) => {
@@ -146,10 +139,65 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
                 if (empUserId === 'live') {
                     // Cập nhật ca Live (chỉ admin)
+                    const currentShifts = liveEvents[day] || [];
+                    const isAdding = !currentShifts.includes(shiftType);
+                    const action = isAdding ? 'add' : 'remove';
+
                     const response = await fetch('https://worktime-dux3.onrender.com/api/live/update', {
                         method: 'POST',
                         headers,
                         body: JSON.stringify({
+                            day,
+                            shiftType,
+                            weekStartDate: formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 })),
+                            action
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            // Cập nhật state từ response của backend (đã có đầy đủ schedule)
+                            setLiveEvents(data.data.schedule);
+
+                            // Kiểm tra nếu không còn ca nào, gọi API DELETE để xóa lịch Live của ngày đó
+                            if (!data.data.schedule[day] || data.data.schedule[day].length === 0) {
+                                try {
+                                    const deleteResponse = await fetch(
+                                        `https://worktime-dux3.onrender.com/api/live/${day}?weekStartDate=${formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))}`,
+                                        {
+                                            method: 'DELETE',
+                                            headers
+                                        }
+                                    );
+
+                                    if (deleteResponse.ok) {
+                                        console.log(`Đã xóa lịch Live cho ngày ${day}`);
+                                    }
+                                } catch (deleteError) {
+                                    console.error('Lỗi khi xóa lịch Live:', deleteError);
+                                }
+                            }
+
+                            // Hiển thị thông báo thành công
+                            const dayName = DAY_NAMES[day - 1];
+                            const shiftName = SHIFT_LABELS[shiftType];
+                            const actionText = isAdding ? 'thêm' : 'xóa';
+                            setMessage(`Đã ${actionText} buổi Live ${dayName} - ${shiftName}`);
+                            setMessageType('success');
+                        } else {
+                            throw new Error(data.error?.message || 'Có lỗi xảy ra');
+                        }
+                    } else {
+                        throw new Error('Không thể cập nhật lịch Live');
+                    }
+                } else {
+                    // Cập nhật ca làm việc của nhân viên (bao gồm cả ca Off)
+                    const response = await fetch('https://worktime-dux3.onrender.com/api/shifts/toggle', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            userId: empUserId,
                             day,
                             shiftType,
                             weekStartDate: formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))
@@ -160,62 +208,64 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                         const data = await response.json();
                         if (data.success) {
                             // Cập nhật state
-                            setLiveEvents(prev => ({
-                                ...prev,
-                                [day]: shiftType
+                            setEmployees(prev => prev.map(emp => {
+                                if (emp.userId === empUserId) {
+                                    return {
+                                        ...emp,
+                                        shifts: {
+                                            ...emp.shifts,
+                                            [day]: data.data.shifts[day]
+                                        }
+                                    };
+                                }
+                                return emp;
                             }));
 
+                            // Cập nhật modalInfo để hiển thị thay đổi ngay lập tức
+                            setModalInfo(prev => ({
+                                ...prev,
+                                dayShifts: data.data.shifts[day]
+                            }));
+
+                            // Kiểm tra nếu không còn ca nào, gọi API DELETE để xóa ca của ngày đó
+                            if (!data.data.shifts[day] ||
+                                (!data.data.shifts[day].morning &&
+                                    !data.data.shifts[day].noon &&
+                                    !data.data.shifts[day].afternoon &&
+                                    !data.data.shifts[day].evening &&
+                                    !data.data.shifts[day].off)) {
+
+                                try {
+                                    // Phân biệt API DELETE cho admin và user thường
+                                    const deleteUrl = isAdmin
+                                        ? `https://worktime-dux3.onrender.com/api/shifts/user/${empUserId}/day/${day}?weekStartDate=${formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))}`
+                                        : `https://worktime-dux3.onrender.com/api/shifts/own/${day}?weekStartDate=${formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))}`;
+
+                                    const deleteResponse = await fetch(deleteUrl, {
+                                        method: 'DELETE',
+                                        headers
+                                    });
+
+                                    if (deleteResponse.ok) {
+                                        if (isAdmin) {
+                                            console.log(`Admin đã xóa ca của user ${empUserId} cho ngày ${day}`);
+                                        } else {
+                                            console.log(`User đã xóa ca của chính mình cho ngày ${day}`);
+                                        }
+                                    }
+                                } catch (deleteError) {
+                                    console.error('Lỗi khi xóa ca:', deleteError);
+                                }
+                            }
+
                             // Hiển thị thông báo thành công
-                            const dayName = DAY_NAMES[day - 1];
-                            const shiftName = SHIFT_LABELS[shiftType];
-                            setMessage(`Đã cập nhật buổi Live ${dayName} thành ${shiftName}`);
+                            setMessage(data.data.message || 'Đã cập nhật ca làm việc');
                             setMessageType('success');
                         } else {
                             throw new Error(data.error?.message || 'Có lỗi xảy ra');
                         }
                     } else {
-                        throw new Error('Không thể cập nhật lịch Live');
-                    }
-                } else {
-                    // Cập nhật ca làm việc của nhân viên
-                    if (shiftType !== 'off') {
-                        const response = await fetch('https://worktime-dux3.onrender.com/api/shifts/toggle', {
-                            method: 'POST',
-                            headers,
-                            body: JSON.stringify({
-                                userId: empUserId,
-                                day,
-                                shiftType,
-                                weekStartDate: formatDateForAPI(startOfWeek(currentDate, { weekStartsOn: 1 }))
-                            })
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.success) {
-                                // Cập nhật state
-                                setEmployees(prev => prev.map(emp => {
-                                    if (emp.userId === empUserId) {
-                                        return {
-                                            ...emp,
-                                            shifts: {
-                                                ...emp.shifts,
-                                                [day]: data.data.shifts[day]
-                                            }
-                                        };
-                                    }
-                                    return emp;
-                                }));
-
-                                // Hiển thị thông báo thành công
-                                setMessage(data.data.message || 'Đã cập nhật ca làm việc');
-                                setMessageType('success');
-                            } else {
-                                throw new Error(data.error?.message || 'Có lỗi xảy ra');
-                            }
-                        } else {
-                            throw new Error('Không thể cập nhật ca làm việc');
-                        }
+                        throw new Error('Không thể cập nhật ca làm việc');
                     }
                 }
             }
@@ -234,8 +284,34 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     const openShiftModal = (employeeId: string, day: number, dayShifts: DayShifts | null, isLive: boolean = false, event: React.MouseEvent) => {
         // Tính toán vị trí hiển thị modal dựa trên vị trí click
         const rect = event.currentTarget.getBoundingClientRect();
-        const x = rect.left + window.scrollX;
-        const y = rect.bottom + window.scrollY;
+        const modalHeight = 400; // Ước tính chiều cao modal
+        const modalWidth = 320; // Ước tính chiều rộng modal
+
+        // Tính toán vị trí X (hiển thị bên trái nút)
+        let x = rect.left + window.scrollX - modalWidth - 10; // Bên trái nút với khoảng cách 10px
+
+        // Tính toán vị trí Y (căn giữa theo nút)
+        let y = rect.top + (rect.height / 2) + window.scrollY - (modalHeight / 2);
+
+        // Kiểm tra nếu modal bị tràn ra ngoài màn hình bên trái, thì hiển thị bên phải
+        if (x < 20) {
+            x = rect.right + window.scrollX + 10; // Bên phải nút với khoảng cách 10px
+        }
+
+        // Kiểm tra nếu modal bị tràn ra ngoài màn hình bên phải
+        if (x + modalWidth > window.innerWidth - 20) {
+            x = window.innerWidth - modalWidth - 20;
+        }
+
+        // Kiểm tra nếu modal bị tràn ra ngoài màn hình bên trên
+        if (y < 20) {
+            y = 20;
+        }
+
+        // Kiểm tra nếu modal bị tràn ra ngoài màn hình bên dưới
+        if (y + modalHeight > window.innerHeight - 20) {
+            y = window.innerHeight - modalHeight - 20;
+        }
 
         setModalInfo({
             isOpen: true,
@@ -257,68 +333,111 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         const isEditable = (employeeId === userId && !isAdmin) || isAdmin;
         const isLiveRow = employeeId === 'live';
 
-        // Nếu là hàng Live và không phải admin thì chỉ hiển thị
-        if (isLiveRow && !isAdmin) {
-            const currentShift = liveEvents[day];
-            if (currentShift === 'off') {
-                return <div className="h-10 flex items-center justify-center text-gray-400">-</div>;
-            }
+        // Nếu là hàng Live
+        if (isLiveRow) {
+            const currentShifts = liveEvents[day] || [];
+            const hasShifts = currentShifts.length > 0;
 
-            let bgColor, textColor;
-            switch (currentShift) {
-                case 'morning': bgColor = 'bg-blue-200'; textColor = 'text-blue-800'; break;
-                case 'noon': bgColor = 'bg-yellow-200'; textColor = 'text-yellow-800'; break;
-                case 'afternoon': bgColor = 'bg-green-200'; textColor = 'text-green-800'; break;
-                case 'evening': bgColor = 'bg-purple-200'; textColor = 'text-purple-800'; break;
-                default: bgColor = 'bg-red-200'; textColor = 'text-red-800';
+            if (!hasShifts) {
+                return (
+                    <div className="p-1">
+                        {isAdmin ? (
+                            <button
+                                className="w-full bg-blue-500 text-white py-1 px-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center"
+                                onClick={(e) => openShiftModal(employeeId, day, null, true, e)}
+                            >
+                                <Plus size={14} className="mr-1" /> Thêm ca
+                            </button>
+                        ) : (
+                            <div className="h-10 flex items-center justify-center text-gray-400">-</div>
+                        )}
+                    </div>
+                );
             }
 
             return (
-                <div className="p-1 h-full">
-                    <div className={`${bgColor} ${textColor} rounded-md py-1 px-2 text-center font-medium`}>
-                        {SHIFT_LABELS[currentShift]}
-                    </div>
+                <div className="p-1 flex flex-col gap-1">
+                    {currentShifts.includes('off') && (
+                        <div className="bg-red-200 text-red-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                            <span>Off</span>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => handleShiftToggle('live', day, 'off')}
+                                    className="text-red-700 hover:text-red-900 focus:outline-none"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {currentShifts.includes('morning') && (
+                        <div className="bg-blue-200 text-blue-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                            <span>Sáng</span>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => handleShiftToggle('live', day, 'morning')}
+                                    className="text-blue-700 hover:text-blue-900 focus:outline-none"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {currentShifts.includes('noon') && (
+                        <div className="bg-yellow-200 text-yellow-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                            <span>Trưa</span>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => handleShiftToggle('live', day, 'noon')}
+                                    className="text-yellow-700 hover:text-yellow-900 focus:outline-none"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {currentShifts.includes('afternoon') && (
+                        <div className="bg-green-200 text-green-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                            <span>Chiều</span>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => handleShiftToggle('live', day, 'afternoon')}
+                                    className="text-green-700 hover:text-green-900 focus:outline-none"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {currentShifts.includes('evening') && (
+                        <div className="bg-purple-200 text-purple-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                            <span>Tối</span>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => handleShiftToggle('live', day, 'evening')}
+                                    className="text-purple-700 hover:text-purple-900 focus:outline-none"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Nút thay đổi ca chỉ hiển thị cho admin */}
+                    {isAdmin && (
+                        <button
+                            className="bg-blue-100 text-blue-600 py-1 px-2 rounded hover:bg-blue-200 transition-colors text-xs flex items-center justify-center"
+                            onClick={(e) => openShiftModal(employeeId, day, null, true, e)}
+                        >
+                            <CalendarClock size={12} className="mr-1" /> Thay đổi
+                        </button>
+                    )}
                 </div>
             );
-        }
-
-        // Nếu là hàng Live và là admin
-        if (isLiveRow && isAdmin) {
-            const currentShift = liveEvents[day];
-
-            // Hiển thị ca hiện tại hoặc nút thêm ca
-            if (currentShift === 'off') {
-                return (
-                    <div className="p-1">
-                        <button
-                            className="w-full bg-red-200 text-red-800 py-1 px-2 rounded hover:bg-red-300 transition-colors"
-                            onClick={(e) => openShiftModal(employeeId, day, null, true, e)}
-                        >
-                            Off
-                        </button>
-                    </div>
-                );
-            } else {
-                let bgColor, textColor;
-                switch (currentShift) {
-                    case 'morning': bgColor = 'bg-blue-200'; textColor = 'text-blue-800'; break;
-                    case 'noon': bgColor = 'bg-yellow-200'; textColor = 'text-yellow-800'; break;
-                    case 'afternoon': bgColor = 'bg-green-200'; textColor = 'text-green-800'; break;
-                    case 'evening': bgColor = 'bg-purple-200'; textColor = 'text-purple-800'; break;
-                    default: bgColor = 'bg-red-200'; textColor = 'text-red-800';
-                }
-
-                return (
-                    <div className="p-1">
-                        <button
-                            className={`w-full ${bgColor} ${textColor} py-1 px-2 rounded hover:opacity-80 transition-colors`}
-                            onClick={(e) => openShiftModal(employeeId, day, null, true, e)}
-                        >
-                            {SHIFT_LABELS[currentShift]}
-                        </button>
-                    </div>
-                );
-            }
         }
 
         // Nếu không phải Live và không được phép sửa
@@ -338,8 +457,8 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
 
 
-        // Hiển thị các ca đã đăng ký hoặc nút thêm ca
-        const hasShifts = dayShifts.morning || dayShifts.noon || dayShifts.afternoon || dayShifts.evening;
+        // Hiển thị các ca đã đăng ký hoặc nút thêm ca (bao gồm cả ca Off)
+        const hasShifts = dayShifts.morning || dayShifts.noon || dayShifts.afternoon || dayShifts.evening || dayShifts.off;
 
         if (!hasShifts) {
             return (
@@ -404,15 +523,25 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     </div>
                 )}
 
-                {/* Nút thêm ca nếu chưa đăng ký đủ 4 ca */}
-                {(!dayShifts.morning || !dayShifts.noon || !dayShifts.afternoon || !dayShifts.evening) && (
-                    <button
-                        className="bg-gray-100 text-gray-600 py-1 px-2 rounded hover:bg-gray-200 transition-colors text-xs flex items-center justify-center"
-                        onClick={(e) => openShiftModal(employeeId, day, dayShifts, false, e)}
-                    >
-                        <Plus size={12} className="mr-1" /> Thêm ca
-                    </button>
+                {dayShifts.off && (
+                    <div className="bg-red-200 text-red-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
+                        <span>Off</span>
+                        <button
+                            onClick={() => handleShiftToggle(employeeId, day, 'off')}
+                            className="text-red-700 hover:text-red-900 focus:outline-none"
+                        >
+                            ×
+                        </button>
+                    </div>
                 )}
+
+                {/* Nút thay đổi ca luôn hiển thị khi có ca để có thể điều chỉnh */}
+                <button
+                    className="bg-blue-100 text-blue-600 py-1 px-2 rounded hover:bg-blue-200 transition-colors text-xs flex items-center justify-center"
+                    onClick={(e) => openShiftModal(employeeId, day, dayShifts, false, e)}
+                >
+                    <CalendarClock size={12} className="mr-1" /> Thay đổi
+                </button>
             </div>
         );
     };
@@ -479,37 +608,49 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300" style={{ width: '25%' }}>
                                 NHÂN VIÊN
                             </th>
-                            {DAY_NAMES.map((day, index) => (
-                                <th key={index} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300" style={{ width: '10%' }}>
-                                    {day}
-                                </th>
-                            ))}
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">
-                                TỔNG BUỔI
-                            </th>
+                            {DAY_NAMES.map((day, index) => {
+                                const dayNumber = index + 1;
+                                const currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+                                const dayDate = new Date(currentWeekStart);
+                                dayDate.setDate(currentWeekStart.getDate() + dayNumber - 1);
+
+                                return (
+                                    <th key={index} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300" style={{ width: '10%' }}>
+                                        <div>{day}</div>
+                                        <div className="text-xs font-normal text-gray-400 mt-1">
+                                            {format(dayDate, 'dd/MM')}
+                                        </div>
+                                    </th>
+                                );
+                            })}
+
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {/* Danh sách nhân viên */}
-                        {employees.map((employee) => (
-                            <tr key={employee.userId} className={employee.userId === userId ? "bg-blue-100" : ""}>
-                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
-                                    {employee.username} {employee.userId === userId && " (Bạn)"}
-                                </td>
-
-                                {/* Các ngày trong tuần */}
-                                {[1, 2, 3, 4, 5, 6, 7].map(day => (
-                                    <td key={day} className="p-1 border border-gray-300">
-                                        {renderShiftCell(employee.userId, day, employee.shifts[day])}
+                        {/* Danh sách nhân viên - User hiện tại luôn ở đầu */}
+                        {employees
+                            .sort((a, b) => {
+                                // Đưa user hiện tại lên đầu
+                                if (a.userId === userId) return -1;
+                                if (b.userId === userId) return 1;
+                                return 0;
+                            })
+                            .map((employee) => (
+                                <tr key={employee.userId} className={employee.userId === userId ? "bg-blue-100" : ""}>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
+                                        {employee.username} {employee.userId === userId && " (Bạn)"}
                                     </td>
-                                ))}
 
-                                {/* Tổng số buổi */}
-                                <td className="px-3 py-2 whitespace-nowrap text-center text-sm font-medium text-gray-800 border border-gray-300">
-                                    {calculateTotalShifts(employee.shifts)}
-                                </td>
-                            </tr>
-                        ))}
+                                    {/* Các ngày trong tuần */}
+                                    {[1, 2, 3, 4, 5, 6, 7].map(day => (
+                                        <td key={day} className="p-1 border border-gray-300">
+                                            {renderShiftCell(employee.userId, day, employee.shifts[day])}
+                                        </td>
+                                    ))}
+
+
+                                </tr>
+                            ))}
 
                         {/* Hàng Live */}
                         <tr className="bg-red-100">
@@ -520,19 +661,11 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                             {/* Các ngày trong tuần */}
                             {[1, 2, 3, 4, 5, 6, 7].map(day => (
                                 <td key={day} className="whitespace-nowrap border border-gray-300">
-                                    {renderShiftCell('live', day, {
-                                        morning: liveEvents[day] === 'morning',
-                                        noon: liveEvents[day] === 'noon',
-                                        afternoon: liveEvents[day] === 'afternoon',
-                                        evening: liveEvents[day] === 'evening'
-                                    })}
+                                    {renderShiftCell('live', day, {})}
                                 </td>
                             ))}
 
-                            {/* Tổng số buổi */}
-                            <td className="px-3 py-2 whitespace-nowrap text-center text-sm font-medium text-gray-800 border border-gray-300">
-                                {Object.values(liveEvents).filter(shift => shift !== 'off').length}
-                            </td>
+
                         </tr>
                     </tbody>
                 </table>
@@ -540,26 +673,31 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
             {/* Modal chọn ca làm việc */}
             {modalInfo.isOpen && (
-                <div className="fixed inset-0 z-50 overflow-auto flex" onClick={closeModal}>
+                <div className="fixed inset-0 z-50" onClick={closeModal}>
                     <div
-                        className="relative bg-white rounded-lg shadow-xl p-4 max-w-md border border-gray-300"
+                        className="absolute bg-white rounded-lg shadow-2xl p-4 w-full max-w-xs md:max-w-sm border border-gray-200"
                         style={{
-                            position: 'absolute',
-                            top: `${modalInfo.position.y}px`,
-                            left: `${modalInfo.position.x}px`,
-                            transform: modalInfo.isLive ? 'translate(-50%, -110%)' : 'translate(-50%, 10px)',
-                            minWidth: '280px',
-                            maxWidth: '90%',
+                            // Trên mobile: căn giữa màn hình, trên desktop: theo vị trí ô đã được tính toán
+                            top: window.innerWidth < 768 ? '50%' : `${modalInfo.position.y}px`,
+                            left: window.innerWidth < 768 ? '50%' : `${modalInfo.position.x}px`,
+                            transform: window.innerWidth < 768 ? 'translate(-50%, -50%)' : 'none',
                             zIndex: 9999
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-medium">
-                                {modalInfo.isLive ? 'Chọn giờ Live' : 'Đăng ký ca làm việc'}
-                            </h3>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    {modalInfo.isLive ? 'Chọn giờ Live' : 'Đăng ký ca làm việc'}
+                                </h3>
+                                {!modalInfo.isLive && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {DAY_NAMES[modalInfo.day - 1]} - {format(addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), modalInfo.day - 1), 'dd/MM/yyyy', { locale: vi })}
+                                    </p>
+                                )}
+                            </div>
                             <button
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
                                 onClick={closeModal}
                             >
                                 <X size={20} />
@@ -569,21 +707,45 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                         {modalInfo.isLive ? (
                             <div className="space-y-2">
                                 {Object.entries(SHIFT_LABELS).map(([value, label]) => {
-                                    const currentShift = liveEvents[modalInfo.day];
+                                    const currentShifts = liveEvents[modalInfo.day] || [];
+                                    const isSelected = currentShifts.includes(value as ShiftType);
                                     return (
-                                        <div
+                                        <button
                                             key={value}
-                                            className={`p-3 cursor-pointer hover:bg-gray-100 rounded-md flex items-center ${value === currentShift ? 'bg-blue-50 border border-blue-200' : ''}`}
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-gray-100 rounded-md flex items-center transition-colors border ${isSelected ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}`}
                                             onClick={() => {
-                                                handleShiftToggle('live', modalInfo.day, value as ShiftType);
-                                                closeModal();
+                                                if (value === 'off') {
+                                                    // Sau đó toggle ca Off
+                                                    handleShiftToggle('live', modalInfo.day, 'off');
+                                                    // Khi chọn ca Off, xóa tất cả ca khác trước
+                                                    const currentShifts = liveEvents[modalInfo.day] || [];
+                                                    currentShifts.forEach(shiftType => {
+                                                        if (shiftType !== 'off') {
+                                                            handleShiftToggle('live', modalInfo.day, shiftType);
+                                                        }
+                                                    });
+                                                } else {
+                                                    // Toggle ca được chọn
+                                                    handleShiftToggle('live', modalInfo.day, value as ShiftType);
+                                                    // Khi chọn ca khác, xóa ca Off nếu có
+                                                    const currentShifts = liveEvents[modalInfo.day] || [];
+                                                    if (currentShifts.includes('off')) {
+                                                        handleShiftToggle('live', modalInfo.day, 'off');
+                                                    }
+                                                }
                                             }}
                                         >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                readOnly
+                                                className="mr-2"
+                                            />
                                             <div className="flex-1">{label}</div>
-                                            {value === currentShift && (
+                                            {isSelected && (
                                                 <div className="text-blue-600">✓</div>
                                             )}
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -591,8 +753,8 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                             <div className="space-y-2">
                                 {modalInfo.dayShifts && (
                                     <>
-                                        <div
-                                            className={`p-3 cursor-pointer hover:bg-blue-100 rounded-md flex items-center ${modalInfo.dayShifts.morning ? 'bg-blue-50 border border-blue-200' : ''}`}
+                                        <button
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-blue-100 rounded-md flex items-center transition-colors border ${modalInfo.dayShifts.morning ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}`}
                                             onClick={() => {
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'morning');
                                                 // Không đóng modal để người dùng có thể chọn nhiều ca
@@ -600,75 +762,100 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={modalInfo.dayShifts.morning || false}
+                                                checked={false}
                                                 readOnly
                                                 className="mr-2"
                                             />
-                                            <div className="flex-1">Sáng (06:00 - 12:00)</div>
+                                            <div className="flex-1">Sáng</div>
                                             {modalInfo.dayShifts.morning && (
                                                 <div className="text-blue-600">✓</div>
                                             )}
-                                        </div>
+                                        </button>
 
-                                        <div
-                                            className={`p-3 cursor-pointer hover:bg-yellow-100 rounded-md flex items-center ${modalInfo.dayShifts.noon ? 'bg-yellow-50 border border-yellow-200' : ''}`}
+                                        <button
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-yellow-100 rounded-md flex items-center transition-colors border ${modalInfo.dayShifts.noon ? 'bg-yellow-50 border-yellow-200' : 'border-gray-200'}`}
                                             onClick={() => {
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'noon');
                                             }}
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={modalInfo.dayShifts.noon || false}
+                                                checked={false}
                                                 readOnly
                                                 className="mr-2"
                                             />
-                                            <div className="flex-1">Trưa (12:00 - 14:00)</div>
+                                            <div className="flex-1">Trưa</div>
                                             {modalInfo.dayShifts.noon && (
                                                 <div className="text-yellow-600">✓</div>
                                             )}
-                                        </div>
+                                        </button>
 
-                                        <div
-                                            className={`p-3 cursor-pointer hover:bg-green-100 rounded-md flex items-center ${modalInfo.dayShifts.afternoon ? 'bg-green-50 border border-green-200' : ''}`}
+                                        <button
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-green-100 rounded-md flex items-center transition-colors border ${modalInfo.dayShifts.afternoon ? 'bg-green-50 border-green-200' : 'border-gray-200'}`}
                                             onClick={() => {
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'afternoon');
                                             }}
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={modalInfo.dayShifts.afternoon || false}
+                                                checked={false}
                                                 readOnly
                                                 className="mr-2"
                                             />
-                                            <div className="flex-1">Chiều (14:00 - 18:00)</div>
+                                            <div className="flex-1">Chiều</div>
                                             {modalInfo.dayShifts.afternoon && (
                                                 <div className="text-green-600">✓</div>
                                             )}
-                                        </div>
+                                        </button>
 
-                                        <div
-                                            className={`p-3 cursor-pointer hover:bg-purple-100 rounded-md flex items-center ${modalInfo.dayShifts.evening ? 'bg-purple-50 border border-purple-200' : ''}`}
+                                        <button
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-purple-100 rounded-md flex items-center transition-colors border ${modalInfo.dayShifts.evening ? 'bg-purple-50 border-purple-200' : 'border-gray-200'}`}
                                             onClick={() => {
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'evening');
                                             }}
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={modalInfo.dayShifts.evening || false}
+                                                checked={false}
                                                 readOnly
                                                 className="mr-2"
                                             />
-                                            <div className="flex-1">Tối (18:00 - 22:00)</div>
+                                            <div className="flex-1">Tối</div>
                                             {modalInfo.dayShifts.evening && (
                                                 <div className="text-purple-600">✓</div>
                                             )}
-                                        </div>
+                                        </button>
+
+                                        {/* Ca Off */}
+                                        <button
+                                            className={`w-full p-3 text-left cursor-pointer hover:bg-gray-100 rounded-md flex items-center transition-colors border ${modalInfo.dayShifts?.off ? 'bg-gray-50 border-gray-300' : 'border-gray-200'}`}
+                                            onClick={() => {
+                                                // Toggle ca Off như các ca khác
+                                                handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'off');
+                                                // Khi chọn ca Off, xóa tất cả ca khác trước
+                                                if (modalInfo.dayShifts?.morning) handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'morning');
+                                                if (modalInfo.dayShifts?.noon) handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'noon');
+                                                if (modalInfo.dayShifts?.afternoon) handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'afternoon');
+                                                if (modalInfo.dayShifts?.evening) handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'evening');
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={false}
+                                                readOnly
+                                                className="mr-2"
+                                            />
+                                            <div className="flex-1">Off (Nghỉ)</div>
+                                            {modalInfo.dayShifts?.off && (
+                                                <div className="text-gray-600">✓</div>
+                                            )}
+                                        </button>
                                     </>
                                 )}
 
                                 <div className="flex justify-end mt-4">
                                     <button
-                                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                        className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 text-sm font-medium"
                                         onClick={closeModal}
                                     >
                                         Đóng

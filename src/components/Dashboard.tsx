@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, CalendarClock } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, CalendarClock, Settings, Users } from 'lucide-react';
 import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
@@ -60,7 +60,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -626,6 +626,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 {activeTab === 'shifts' && <ChevronRight className="h-4 w-4 ml-auto" />}
               </button>
             </li>
+            {userRole === 'admin' && (
+              <li>
+                <button
+                  onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'admin' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Quản lý</span>
+                  {activeTab === 'admin' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                </button>
+              </li>
+            )}
             <li>
               <button
                 onClick={handleLogout}
@@ -657,7 +669,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       ? 'Banking'
                       : activeTab === 'attendance'
                         ? 'Chấm công'
-                        : 'Đăng ký ca'
+                        : activeTab === 'shifts'
+                          ? 'Đăng ký ca'
+                          : 'Quản lý'
                 }
               </h1>
             </div>
@@ -686,7 +700,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-6">Chào mừng đến với Giorlin</h2>
               <p className="text-gray-600 mb-4 sm:mb-8">Chọn một chức năng để tiếp tục</p>
 
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
                 <button
                   onClick={() => setActiveTab('transactions')}
                   className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg p-3 sm:p-5 transition-all duration-200 border border-blue-200 hover:border-blue-300 hover:shadow-md"
@@ -713,6 +727,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   <h3 className="text-base sm:text-lg font-semibold">Đăng ký ca</h3>
                   <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-gray-600 hidden sm:block">Đăng ký ca làm</p>
                 </button>
+
+                {userRole === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className="flex flex-col items-center justify-center bg-red-50 hover:bg-red-100 text-red-700 rounded-lg p-3 sm:p-5 transition-all duration-200 border border-red-200 hover:border-red-300 hover:shadow-md"
+                  >
+                    <Settings className="h-8 w-8 sm:h-10 sm:w-10 mb-2" />
+                    <h3 className="text-base sm:text-lg font-semibold">Quản lý</h3>
+                    <p className="text-xs sm:text-sm mt-1 sm:mt-2 text-gray-600 hidden sm:block">Quản lý hệ thống</p>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -731,6 +756,95 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             userName={userName}
             isAdmin={userRole === 'admin'}
           />
+        )}
+
+        {activeTab === 'admin' && userRole === 'admin' && (
+          <div className="space-y-6">
+            {/* Admin Dashboard Header */}
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <Settings className="h-6 w-6 mr-3 text-red-600" />
+                Quản lý hệ thống
+              </h2>
+              <p className="text-gray-600">Chào mừng Admin! Chọn chức năng quản lý để tiếp tục</p>
+            </div>
+
+            {/* Admin Functions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Quản lý nhân viên */}
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center mb-4">
+                  <Users className="h-8 w-8 text-blue-600 mr-3" />
+                  <h3 className="text-lg font-semibold text-gray-800">Quản lý nhân viên</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Quản lý thông tin, quyền hạn và trạng thái của nhân viên trong hệ thống</p>
+                <div className="space-y-3">
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Xem danh sách nhân viên
+                  </button>
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Thêm nhân viên mới
+                  </button>
+                  <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Cập nhật thông tin
+                  </button>
+                </div>
+              </div>
+
+              {/* Quản lý chấm công */}
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center mb-4">
+                  <Clock className="h-8 w-8 text-green-600 mr-3" />
+                  <h3 className="text-lg font-semibold text-gray-800">Quản lý chấm công</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Theo dõi và quản lý lịch sử chấm công của tất cả nhân viên</p>
+                <div className="space-y-3">
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Xem báo cáo chấm công
+                  </button>
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Xuất báo cáo
+                  </button>
+                  <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
+                    Quản lý vị trí
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center">
+                  <Users className="h-8 w-8 text-blue-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Tổng nhân viên</p>
+                    <p className="text-2xl font-bold text-gray-900">24</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center">
+                  <Clock className="h-8 w-8 text-green-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Đang làm việc</p>
+                    <p className="text-2xl font-bold text-gray-900">18</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center">
+                  <Calendar className="h-8 w-8 text-purple-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Ca hôm nay</p>
+                    <p className="text-2xl font-bold text-gray-900">32</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'transactions' && (

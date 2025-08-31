@@ -6,6 +6,7 @@ export type DayShifts = {
     noon?: boolean;
     afternoon?: boolean;
     evening?: boolean;
+    off?: boolean;
 };
 
 export interface ShiftSlot {
