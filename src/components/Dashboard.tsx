@@ -6,6 +6,8 @@ import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
 import ShiftTable from './ShiftTable';
+import EmployeeManagement from './EmployeeManagement';
+import AttendanceManagement from './AttendanceManagement';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -61,6 +63,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance'>('overview');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -70,6 +73,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
+
+  const [userId, setUserId] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('');
+
+  // Admin overview stats
+  const [totalEmployees, setTotalEmployees] = useState<number>(0);
+  const [currentlyWorking, setCurrentlyWorking] = useState<number>(0);
+  const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -84,13 +95,24 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load admin overview stats when user role is admin
+  useEffect(() => {
+    if (userRole === 'admin') {
+      loadAdminOverviewStats();
+    }
+  }, [userRole]);
+
+  // Refresh admin stats when switching to admin tab
+  useEffect(() => {
+    if (activeTab === 'admin' && userRole === 'admin') {
+      loadAdminOverviewStats();
+    }
+  }, [activeTab, userRole]);
+
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, filters]);
-
-  const [userId, setUserId] = useState<string>('');
-  const [userRole, setUserRole] = useState<string>('');
 
   const loadUserProfile = async () => {
     try {
@@ -116,6 +138,44 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       }
     } catch (error) {
       console.error('Failed to load user profile:', error);
+    }
+  };
+
+  // Load admin overview stats
+  const loadAdminOverviewStats = async () => {
+    if (userRole !== 'admin') return;
+
+    try {
+      setOverviewLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Get total employees count
+      const totalResponse = await fetch('https://worktime-dux3.onrender.com/api/users/count', { headers });
+      if (totalResponse.ok) {
+        const totalData = await totalResponse.json();
+        if (totalData.success) {
+          setTotalEmployees(totalData.data.totalEmployees);
+        }
+      }
+
+      // Get currently working employees
+      const workingResponse = await fetch('https://worktime-dux3.onrender.com/api/users/currently-working', { headers });
+      if (workingResponse.ok) {
+        const workingData = await workingResponse.json();
+        if (workingData.success) {
+          setCurrentlyWorking(workingData.data.count);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading admin overview stats:', error);
+    } finally {
+      setOverviewLoading(false);
     }
   };
 
@@ -565,7 +625,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-30 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
@@ -774,79 +835,125 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <p className="text-gray-600">Chào mừng Admin! Chọn chức năng quản lý để tiếp tục</p>
             </div>
 
-            {/* Admin Functions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Quản lý nhân viên */}
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center mb-4">
-                  <Users className="h-8 w-8 text-blue-600 mr-3" />
-                  <h3 className="text-lg font-semibold text-gray-800">Quản lý nhân viên</h3>
-                </div>
-                <p className="text-gray-600 mb-4">Quản lý thông tin, quyền hạn và trạng thái của nhân viên trong hệ thống</p>
-                <div className="space-y-3">
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Xem danh sách nhân viên
+            {/* Admin Tab Navigation */}
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-8 px-6">
+                  <button
+                    onClick={() => setAdminSubTab('overview')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'overview'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    Tổng quan
                   </button>
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Thêm nhân viên mới
+                  <button
+                    onClick={() => setAdminSubTab('employees')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'employees'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    Quản lý nhân viên
                   </button>
-                  <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Cập nhật thông tin
+                  <button
+                    onClick={() => setAdminSubTab('attendance')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'attendance'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    Quản lý chấm công
                   </button>
-                </div>
+                </nav>
               </div>
 
-              {/* Quản lý chấm công */}
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center mb-4">
-                  <Clock className="h-8 w-8 text-green-600 mr-3" />
-                  <h3 className="text-lg font-semibold text-gray-800">Quản lý chấm công</h3>
-                </div>
-                <p className="text-gray-600 mb-4">Theo dõi và quản lý lịch sử chấm công của tất cả nhân viên</p>
-                <div className="space-y-3">
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Xem báo cáo chấm công
-                  </button>
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Xuất báo cáo
-                  </button>
-                  <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-                    Quản lý vị trí
-                  </button>
-                </div>
-              </div>
-            </div>
+              <div className="p-6">
+                {adminSubTab === 'overview' && (
+                  <div className="space-y-6">
+                    {/* Quick Stats */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800">Thống kê tổng quan</h3>
+                      <button
+                        onClick={loadAdminOverviewStats}
+                        disabled={overviewLoading}
+                        className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${overviewLoading ? 'animate-spin' : ''}`} />
+                        {overviewLoading ? 'Đang tải...' : 'Làm mới'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="flex items-center">
+                          <Users className="h-8 w-8 text-blue-600 mr-3" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Tổng nhân viên</p>
+                            {overviewLoading ? (
+                              <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+                            ) : (
+                              <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center">
-                  <Users className="h-8 w-8 text-blue-600 mr-3" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Tổng nhân viên</p>
-                    <p className="text-2xl font-bold text-gray-900">24</p>
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="flex items-center">
+                          <Clock className="h-8 w-8 text-green-600 mr-3" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">Đang làm việc</p>
+                            {overviewLoading ? (
+                              <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+                            ) : (
+                              <p className="text-2xl font-bold text-gray-900">{currentlyWorking}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="flex items-center mb-4">
+                          <Users className="h-8 w-8 text-blue-600 mr-3" />
+                          <h3 className="text-lg font-semibold text-gray-800">Quản lý nhân viên</h3>
+                        </div>
+                        <p className="text-gray-600 mb-4">Quản lý thông tin, quyền hạn và trạng thái của nhân viên trong hệ thống</p>
+                        <button
+                          onClick={() => setAdminSubTab('employees')}
+                          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Xem danh sách nhân viên
+                        </button>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="flex items-center mb-4">
+                          <Clock className="h-8 w-8 text-green-600 mr-3" />
+                          <h3 className="text-lg font-semibold text-gray-800">Quản lý chấm công</h3>
+                        </div>
+                        <p className="text-gray-600 mb-4">Theo dõi và quản lý lịch sử chấm công của tất cả nhân viên</p>
+                        <button
+                          onClick={() => setAdminSubTab('attendance')}
+                          className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Xem báo cáo chấm công
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                )}
 
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center">
-                  <Clock className="h-8 w-8 text-green-600 mr-3" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Đang làm việc</p>
-                    <p className="text-2xl font-bold text-gray-900">18</p>
-                  </div>
-                </div>
-              </div>
+                {adminSubTab === 'employees' && (
+                  <EmployeeManagement isAdmin={userRole === 'admin'} />
+                )}
 
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <div className="flex items-center">
-                  <Calendar className="h-8 w-8 text-purple-600 mr-3" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Ca hôm nay</p>
-                    <p className="text-2xl font-bold text-gray-900">32</p>
-                  </div>
-                </div>
+                {adminSubTab === 'attendance' && (
+                  <AttendanceManagement isAdmin={userRole === 'admin'} />
+                )}
               </div>
             </div>
           </div>
@@ -1290,8 +1397,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
       {/* Transaction Detail Modal */}
       {selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative z-10">
             <div className="p-4 sm:p-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-6">

@@ -673,9 +673,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
             {/* Modal chọn ca làm việc */}
             {modalInfo.isOpen && (
-                <div className="fixed inset-0 z-50" onClick={closeModal}>
+                <div className="fixed inset-0 z-50" onClick={closeModal} style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(4px)' }}>
                     <div
-                        className="absolute bg-white rounded-lg shadow-2xl p-4 w-full max-w-xs md:max-w-sm border border-gray-200"
+                        className="absolute bg-white rounded-lg shadow-2xl p-4 w-full max-w-xs md:max-w-sm border border-gray-200 relative z-10"
                         style={{
                             // Trên mobile: căn giữa màn hình, trên desktop: theo vị trí ô đã được tính toán
                             top: window.innerWidth < 768 ? '50%' : `${modalInfo.position.y}px`,
