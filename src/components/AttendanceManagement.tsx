@@ -38,10 +38,6 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
     const [loading, setLoading] = useState(true);
     const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
 
-    useEffect(() => {
-        loadEmployeesAttendance();
-    }, [selectedMonth, loadEmployeesAttendance]);
-
     const loadEmployeesAttendance = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
@@ -72,6 +68,10 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             setLoading(false);
         }
     }, [selectedMonth]);
+
+    useEffect(() => {
+        loadEmployeesAttendance();
+    }, [selectedMonth, loadEmployeesAttendance]);
 
     const loadEmployeeAttendance = async (employee: EmployeeAttendance) => {
         try {
