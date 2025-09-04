@@ -5,24 +5,39 @@ import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit 
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+interface DailyRecord {
+    date: string;
+    dayOfWeek: number;
+    records: AttendanceRecord[];
+}
+
 interface AttendanceRecord {
     id: string;
-    userId: string;
-    userName: string;
-    userEmail: string;
-    checkIn: string;
-    checkOut: string;
-    location: string;
-    date: string;
-    status: 'present' | 'late' | 'absent';
+    checkInTime: string;
+    checkInTimeFormatted: string;
+    checkOutTime?: string;
+    checkOutTimeFormatted?: string;
+    status: 'checked-in' | 'checked-out' | 'absent';
+    workDuration?: number;
+    workTimeFormatted?: string;
+    officeId: string;
+    notes?: string;
+    isValid: boolean;
 }
 
 interface EmployeeAttendance {
     userId: string;
     name: string;
     email: string;
+    username: string;
     attendanceCount: number;
-    totalDays: number;
+    dailyRecords: DailyRecord[];
+}
+
+interface MonthlySummary {
+    month: number;
+    year: number;
+    summary: EmployeeAttendance[];
 }
 
 interface AttendanceManagementProps {
@@ -43,11 +58,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const monthStart = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
-            const monthEnd = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+            const month = selectedMonth.getMonth() + 1; // 1-12
+            const year = selectedMonth.getFullYear();
 
             const response = await fetch(
-                `https://worktime-dux3.onrender.com/api/admin/attendance/summary?startDate=${monthStart}&endDate=${monthEnd}`,
+                `https://worktime-dux3.onrender.com/api/attendance/admin/monthly-summary?month=${month}&year=${year}`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -58,8 +73,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('Monthly summary API response:', data);
                 if (data.success) {
-                    setEmployees(data.employees || []);
+                    setEmployees(data.data?.summary || []);
                 }
             }
         } catch (error) {
@@ -75,30 +91,18 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
     const loadEmployeeAttendance = async (employee: EmployeeAttendance) => {
         try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
+            // Extract all records from dailyRecords
+            const allRecords: AttendanceRecord[] = [];
+            employee.dailyRecords.forEach(day => {
+                day.records.forEach(record => {
+                    allRecords.push(record);
+                });
+            });
 
-            const monthStart = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
-            const monthEnd = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
-
-            const response = await fetch(
-                `https://worktime-dux3.onrender.com/api/admin/attendance/${employee.userId}?startDate=${monthStart}&endDate=${monthEnd}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    setAttendanceRecords(data.records || []);
-                    setSelectedEmployee(employee);
-                    setShowAttendanceModal(true);
-                }
-            }
+            console.log('Employee attendance records:', allRecords);
+            setAttendanceRecords(allRecords);
+            setSelectedEmployee(employee);
+            setShowAttendanceModal(true);
         } catch (error) {
             console.error('Error loading employee attendance:', error);
         }
@@ -113,15 +117,28 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             const token = localStorage.getItem('token');
             if (!token) return;
 
+            // Prepare update data
+            const updateData: {
+                checkInTime?: string;
+                checkOutTime?: string;
+                notes?: string;
+                officeId?: string;
+            } = {};
+
+            if (record.checkInTime) updateData.checkInTime = record.checkInTime;
+            if (record.checkOutTime) updateData.checkOutTime = record.checkOutTime;
+            if (record.notes) updateData.notes = record.notes;
+            if (record.officeId) updateData.officeId = record.officeId;
+
             const response = await fetch(
-                `https://worktime-dux3.onrender.com/api/admin/attendance/${record.id}`,
+                `https://worktime-dux3.onrender.com/api/attendance/admin/${record.id}`,
                 {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(record)
+                    body: JSON.stringify(updateData)
                 }
             );
 
@@ -133,6 +150,8 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                     ));
                     setEditingRecord(null);
                     alert('Cập nhật thành công!');
+                    // Reload data to get updated records
+                    loadEmployeesAttendance();
                 }
             }
         } catch (error) {
@@ -143,8 +162,8 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'present': return 'bg-green-100 text-green-800';
-            case 'late': return 'bg-yellow-100 text-yellow-800';
+            case 'checked-out': return 'bg-green-100 text-green-800';
+            case 'checked-in': return 'bg-blue-100 text-blue-800';
             case 'absent': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
         }
@@ -152,11 +171,35 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
     const getStatusText = (status: string) => {
         switch (status) {
-            case 'present': return 'Có mặt';
-            case 'late': return 'Đi muộn';
+            case 'checked-out': return 'Đã check-out';
+            case 'checked-in': return 'Đang làm việc';
             case 'absent': return 'Vắng mặt';
             default: return 'Không xác định';
         }
+    };
+
+    // Helper function to format time correctly
+    const formatTimeDisplay = (timeString: string | undefined, formattedTime: string | undefined) => {
+        if (formattedTime) {
+            return formattedTime;
+        }
+
+        if (timeString) {
+            try {
+                const date = new Date(timeString);
+                // Format as HH:MM
+                return date.toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return '--:--';
+            }
+        }
+
+        return '--:--';
     };
 
     const changeMonth = (direction: 'prev' | 'next') => {
@@ -252,18 +295,18 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         {employee.email}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {employee.attendanceCount} / {employee.totalDays}
+                                        {employee.attendanceCount} / {new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                                 <div
                                                     className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${(employee.attendanceCount / employee.totalDays) * 100}%` }}
+                                                    style={{ width: `${(employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100}%` }}
                                                 ></div>
                                             </div>
                                             <span className="text-xs text-gray-500">
-                                                {Math.round((employee.attendanceCount / employee.totalDays) * 100)}%
+                                                {Math.round((employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100)}%
                                             </span>
                                         </div>
                                     </td>
@@ -305,7 +348,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs text-gray-600">Số lần chấm công:</span>
                                         <span className="text-sm font-medium text-gray-900">
-                                            {employee.attendanceCount} / {employee.totalDays}
+                                            {employee.attendanceCount} / {new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()}
                                         </span>
                                     </div>
 
@@ -315,11 +358,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <div className="w-12 bg-gray-200 rounded-full h-2">
                                                 <div
                                                     className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${(employee.attendanceCount / employee.totalDays) * 100}%` }}
+                                                    style={{ width: `${(employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100}%` }}
                                                 ></div>
                                             </div>
                                             <span className="text-xs text-gray-500">
-                                                {Math.round((employee.attendanceCount / employee.totalDays) * 100)}%
+                                                {Math.round((employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100)}%
                                             </span>
                                         </div>
                                     </div>
@@ -367,7 +410,10 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                 Giờ ra
                                             </th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                Vị trí
+                                                Văn phòng
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Thời gian làm việc
                                             </th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                                 Trạng thái
@@ -381,52 +427,55 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         {attendanceRecords.map((record) => (
                                             <tr key={record.id} className="hover:bg-gray-50">
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {format(new Date(record.date), 'dd/MM/yyyy')}
+                                                    {record.checkInTime ? format(new Date(record.checkInTime), 'dd/MM/yyyy') : 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
-                                                            type="time"
-                                                            value={record.checkIn}
+                                                            type="datetime-local"
+                                                            value={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : ''}
                                                             onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, checkIn: e.target.value } : null
+                                                                prev ? { ...prev, checkInTime: e.target.value } : null
                                                             )}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        record.checkIn
+                                                        formatTimeDisplay(record.checkInTime, record.checkInTimeFormatted)
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
-                                                            type="time"
-                                                            value={record.checkOut}
+                                                            type="datetime-local"
+                                                            value={record.checkOutTime ? new Date(record.checkOutTime).toISOString().slice(0, 16) : ''}
                                                             onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, checkOut: e.target.value } : null
+                                                                prev ? { ...prev, checkOutTime: e.target.value } : null
                                                             )}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        record.checkOut
+                                                        formatTimeDisplay(record.checkOutTime, record.checkOutTimeFormatted)
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="text"
-                                                            value={record.location}
+                                                            value={record.officeId || ''}
                                                             onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, location: e.target.value } : null
+                                                                prev ? { ...prev, officeId: e.target.value } : null
                                                             )}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm w-32"
                                                         />
                                                     ) : (
                                                         <div className="flex items-center gap-1">
                                                             <MapPin className="h-3 w-3 text-gray-400" />
-                                                            {record.location}
+                                                            {record.officeId || 'N/A'}
                                                         </div>
                                                     )}
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {record.workTimeFormatted || 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
                                                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
@@ -474,7 +523,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-gray-400" />
                                                 <span className="text-sm font-medium text-gray-900">
-                                                    {format(new Date(record.date), 'dd/MM/yyyy')}
+                                                    {record.checkInTime ? format(new Date(record.checkInTime), 'dd/MM/yyyy') : 'N/A'}
                                                 </span>
                                             </div>
                                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
@@ -489,25 +538,25 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <div className="flex gap-2">
                                                             <input
-                                                                type="time"
-                                                                value={record.checkIn}
+                                                                type="datetime-local"
+                                                                value={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : ''}
                                                                 onChange={(e) => setEditingRecord(prev =>
-                                                                    prev ? { ...prev, checkIn: e.target.value } : null
+                                                                    prev ? { ...prev, checkInTime: e.target.value } : null
                                                                 )}
                                                                 className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                             <span>-</span>
                                                             <input
-                                                                type="time"
-                                                                value={record.checkOut}
+                                                                type="datetime-local"
+                                                                value={record.checkOutTime ? new Date(record.checkOutTime).toISOString().slice(0, 16) : ''}
                                                                 onChange={(e) => setEditingRecord(prev =>
-                                                                    prev ? { ...prev, checkOut: e.target.value } : null
+                                                                    prev ? { ...prev, checkOutTime: e.target.value } : null
                                                                 )}
                                                                 className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                         </div>
                                                     ) : (
-                                                        `${record.checkIn} - ${record.checkOut}`
+                                                        `${formatTimeDisplay(record.checkInTime, record.checkInTimeFormatted)} - ${formatTimeDisplay(record.checkOutTime, record.checkOutTimeFormatted)}`
                                                     )}
                                                 </span>
                                             </div>
@@ -518,14 +567,14 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="text"
-                                                            value={record.location}
+                                                            value={record.officeId || ''}
                                                             onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, location: e.target.value } : null
+                                                                prev ? { ...prev, officeId: e.target.value } : null
                                                             )}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm w-full"
                                                         />
                                                     ) : (
-                                                        record.location
+                                                        record.officeId || 'N/A'
                                                     )}
                                                 </span>
                                             </div>
