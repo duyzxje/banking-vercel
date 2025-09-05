@@ -166,7 +166,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           setCurrentlyWorking(workingData.data.count);
           // Get detailed information about currently working employees
           if (workingData.data.currentlyWorking && workingData.data.currentlyWorking.length > 0) {
-            setCurrentlyWorkingDetails(workingData.data.currentlyWorking.map((emp: any) => ({
+            setCurrentlyWorkingDetails(workingData.data.currentlyWorking.map((emp: {
+              userId: string;
+              name: string;
+              checkInTime: string;
+              checkInTimeFormatted: string;
+            }) => ({
               userId: emp.userId,
               name: emp.name,
               checkInTime: emp.checkInTime,

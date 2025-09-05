@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface DailyRecord {
@@ -34,11 +34,6 @@ interface EmployeeAttendance {
     dailyRecords: DailyRecord[];
 }
 
-interface MonthlySummary {
-    month: number;
-    year: number;
-    summary: EmployeeAttendance[];
-}
 
 interface AttendanceManagementProps {
     isAdmin: boolean;
