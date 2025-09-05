@@ -80,6 +80,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Admin overview stats
   const [totalEmployees, setTotalEmployees] = useState<number>(0);
   const [currentlyWorking, setCurrentlyWorking] = useState<number>(0);
+  const [currentlyWorkingDetails, setCurrentlyWorkingDetails] = useState<Array<{
+    userId: string;
+    name: string;
+    checkInTime: string;
+    checkInTimeFormatted: string;
+  }>>([]);
   const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -158,6 +164,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         const workingData = await workingResponse.json();
         if (workingData.success) {
           setCurrentlyWorking(workingData.data.count);
+          // Get detailed information about currently working employees
+          if (workingData.data.currentlyWorking && workingData.data.currentlyWorking.length > 0) {
+            setCurrentlyWorkingDetails(workingData.data.currentlyWorking.map((emp: any) => ({
+              userId: emp.userId,
+              name: emp.name,
+              checkInTime: emp.checkInTime,
+              checkInTimeFormatted: emp.checkInTimeFormatted
+            })));
+          } else {
+            setCurrentlyWorkingDetails([]);
+          }
         }
       }
     } catch (error) {
@@ -902,7 +919,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       </div>
 
                       <div className="bg-gray-50 rounded-lg p-6">
-                        <div className="flex items-center">
+                        <div className="flex items-center mb-4">
                           <Clock className="h-8 w-8 text-green-600 mr-3" />
                           <div>
                             <p className="text-sm font-medium text-gray-600">Đang làm việc</p>
@@ -913,6 +930,38 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                             )}
                           </div>
                         </div>
+
+                        {/* Danh sách nhân viên đang làm việc */}
+                        {!overviewLoading && currentlyWorkingDetails.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-gray-500 mb-2">Chi tiết:</p>
+                            {currentlyWorkingDetails.map((employee, index) => (
+                              <div key={employee.userId} className="bg-white rounded-lg p-3 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                      <span className="text-xs font-medium text-green-600">{index + 1}</span>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">{employee.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs text-gray-500">Check-in:</p>
+                                    <p className="text-sm font-medium text-green-600">
+                                      {employee.checkInTimeFormatted ||
+                                        (employee.checkInTime ? new Date(employee.checkInTime).toTimeString().slice(0, 5) : '--:--')}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {!overviewLoading && currentlyWorkingDetails.length === 0 && currentlyWorking === 0 && (
+                          <div className="text-center py-2">
+                            <p className="text-xs text-gray-400">Không có nhân viên nào đang làm việc</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 

@@ -627,13 +627,14 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {/* Danh sách nhân viên - User hiện tại luôn ở đầu */}
+                        {/* Danh sách nhân viên - User hiện tại luôn ở đầu, còn lại sắp xếp theo tên A-Z */}
                         {employees
                             .sort((a, b) => {
                                 // Đưa user hiện tại lên đầu
                                 if (a.userId === userId) return -1;
                                 if (b.userId === userId) return 1;
-                                return 0;
+                                // Sắp xếp các nhân viên khác theo tên từ A-Z
+                                return a.name.localeCompare(b.name, 'vi-VN');
                             })
                             .map((employee) => (
                                 <tr key={employee.userId} className={employee.userId === userId ? "bg-blue-100" : ""}>
@@ -742,12 +743,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 }
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">{label}</div>
                                             {isSelected && (
                                                 <div className="text-blue-600">✓</div>
@@ -767,12 +762,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 // Không đóng modal để người dùng có thể chọn nhiều ca
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={false}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">Sáng</div>
                                             {modalInfo.dayShifts.morning && (
                                                 <div className="text-blue-600">✓</div>
@@ -785,12 +774,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'noon');
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={false}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">Trưa</div>
                                             {modalInfo.dayShifts.noon && (
                                                 <div className="text-yellow-600">✓</div>
@@ -803,12 +786,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'afternoon');
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={false}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">Chiều</div>
                                             {modalInfo.dayShifts.afternoon && (
                                                 <div className="text-green-600">✓</div>
@@ -821,12 +798,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'evening');
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={false}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">Tối</div>
                                             {modalInfo.dayShifts.evening && (
                                                 <div className="text-purple-600">✓</div>
@@ -846,12 +817,6 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                                                 if (modalInfo.dayShifts?.evening) handleShiftToggle(modalInfo.employeeId, modalInfo.day, 'evening');
                                             }}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={false}
-                                                readOnly
-                                                className="mr-2"
-                                            />
                                             <div className="flex-1">Off (Nghỉ)</div>
                                             {modalInfo.dayShifts?.off && (
                                                 <div className="text-gray-600">✓</div>

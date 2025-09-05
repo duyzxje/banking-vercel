@@ -99,7 +99,6 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                 });
             });
 
-            console.log('Employee attendance records:', allRecords);
             setAttendanceRecords(allRecords);
             setSelectedEmployee(employee);
             setShowAttendanceModal(true);
@@ -176,30 +175,6 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             case 'absent': return 'Vắng mặt';
             default: return 'Không xác định';
         }
-    };
-
-    // Helper function to format time correctly
-    const formatTimeDisplay = (timeString: string | undefined, formattedTime: string | undefined) => {
-        if (formattedTime) {
-            return formattedTime;
-        }
-
-        if (timeString) {
-            try {
-                const date = new Date(timeString);
-                // Format as HH:MM
-                return date.toLocaleTimeString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                });
-            } catch (error) {
-                console.error('Error formatting time:', error);
-                return '--:--';
-            }
-        }
-
-        return '--:--';
     };
 
     const changeMonth = (direction: 'prev' | 'next') => {
@@ -427,34 +402,44 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         {attendanceRecords.map((record) => (
                                             <tr key={record.id} className="hover:bg-gray-50">
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {record.checkInTime ? format(new Date(record.checkInTime), 'dd/MM/yyyy') : 'N/A'}
+                                                    {new Date(record.checkInTime).toLocaleDateString('vi-VN')}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
-                                                            type="datetime-local"
-                                                            value={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : ''}
-                                                            onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, checkInTime: e.target.value } : null
-                                                            )}
+                                                            type="time"
+                                                            value={record.checkInTimeFormatted ? record.checkInTimeFormatted.split(' ')[1] || record.checkInTimeFormatted : (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '')}
+                                                            onChange={(e) => {
+                                                                const currentDate = new Date(record.checkInTime);
+                                                                const [hours, minutes] = e.target.value.split(':');
+                                                                currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                setEditingRecord(prev =>
+                                                                    prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
+                                                                );
+                                                            }}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        formatTimeDisplay(record.checkInTime, record.checkInTimeFormatted)
+                                                        record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '--:--')
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
-                                                            type="datetime-local"
-                                                            value={record.checkOutTime ? new Date(record.checkOutTime).toISOString().slice(0, 16) : ''}
-                                                            onChange={(e) => setEditingRecord(prev =>
-                                                                prev ? { ...prev, checkOutTime: e.target.value } : null
-                                                            )}
+                                                            type="time"
+                                                            value={record.checkOutTimeFormatted ? record.checkOutTimeFormatted.split(' ')[1] || record.checkOutTimeFormatted : (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '')}
+                                                            onChange={(e) => {
+                                                                const currentDate = new Date(record.checkOutTime || new Date());
+                                                                const [hours, minutes] = e.target.value.split(':');
+                                                                currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                setEditingRecord(prev =>
+                                                                    prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
+                                                                );
+                                                            }}
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        formatTimeDisplay(record.checkOutTime, record.checkOutTimeFormatted)
+                                                        record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '--:--')
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -523,7 +508,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-gray-400" />
                                                 <span className="text-sm font-medium text-gray-900">
-                                                    {record.checkInTime ? format(new Date(record.checkInTime), 'dd/MM/yyyy') : 'N/A'}
+                                                    {new Date(record.checkInTime).toLocaleDateString('vi-VN')}
                                                 </span>
                                             </div>
                                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
@@ -538,25 +523,35 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <div className="flex gap-2">
                                                             <input
-                                                                type="datetime-local"
-                                                                value={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : ''}
-                                                                onChange={(e) => setEditingRecord(prev =>
-                                                                    prev ? { ...prev, checkInTime: e.target.value } : null
-                                                                )}
+                                                                type="time"
+                                                                value={record.checkInTimeFormatted ? record.checkInTimeFormatted.split(' ')[1] || record.checkInTimeFormatted : (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '')}
+                                                                onChange={(e) => {
+                                                                    const currentDate = new Date(record.checkInTime);
+                                                                    const [hours, minutes] = e.target.value.split(':');
+                                                                    currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                    setEditingRecord(prev =>
+                                                                        prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
+                                                                    );
+                                                                }}
                                                                 className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                             <span>-</span>
                                                             <input
-                                                                type="datetime-local"
-                                                                value={record.checkOutTime ? new Date(record.checkOutTime).toISOString().slice(0, 16) : ''}
-                                                                onChange={(e) => setEditingRecord(prev =>
-                                                                    prev ? { ...prev, checkOutTime: e.target.value } : null
-                                                                )}
+                                                                type="time"
+                                                                value={record.checkOutTimeFormatted ? record.checkOutTimeFormatted.split(' ')[1] || record.checkOutTimeFormatted : (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '')}
+                                                                onChange={(e) => {
+                                                                    const currentDate = new Date(record.checkOutTime || new Date());
+                                                                    const [hours, minutes] = e.target.value.split(':');
+                                                                    currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                    setEditingRecord(prev =>
+                                                                        prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
+                                                                    );
+                                                                }}
                                                                 className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                         </div>
                                                     ) : (
-                                                        `${formatTimeDisplay(record.checkInTime, record.checkInTimeFormatted)} - ${formatTimeDisplay(record.checkOutTime, record.checkOutTimeFormatted)}`
+                                                        `${record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '--:--')} - ${record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '--:--')}`
                                                     )}
                                                 </span>
                                             </div>
