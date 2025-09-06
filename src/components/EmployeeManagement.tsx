@@ -9,6 +9,7 @@ interface Employee {
     username: string;
     email?: string;
     role: 'admin' | 'staff';
+    hourlyRate?: number;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -24,6 +25,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [editingSalary, setEditingSalary] = useState<{ userId: string; rate: number } | null>(null);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -31,7 +33,8 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
         username: '',
         password: '',
         email: '',
-        role: 'staff' as 'admin' | 'staff'
+        role: 'staff' as 'admin' | 'staff',
+        hourlyRate: 0
     });
 
     // Load employees data
@@ -74,7 +77,8 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
             username: employee.username,
             password: '', // Don't show password in view mode
             email: employee.email || '',
-            role: employee.role
+            role: employee.role,
+            hourlyRate: employee.hourlyRate || 0
         });
         setIsEditing(false);
         setShowViewModal(true);
@@ -105,6 +109,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                 updateData.password = formData.password;
             }
 
+            // Update user info
             const response = await fetch(`https://worktime-dux3.onrender.com/api/users/${selectedEmployee.id}`, {
                 method: 'PUT',
                 headers: {
@@ -117,10 +122,15 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
+                    // Update salary if changed
+                    if (formData.hourlyRate !== (selectedEmployee.hourlyRate || 0)) {
+                        await handleUpdateSalary(selectedEmployee.id, formData.hourlyRate);
+                    }
+
                     // Update local state
                     setEmployees(prev => prev.map(emp =>
                         emp.id === selectedEmployee.id
-                            ? { ...emp, ...updateData }
+                            ? { ...emp, ...updateData, hourlyRate: formData.hourlyRate }
                             : emp
                     ));
                     setIsEditing(false);
@@ -133,13 +143,51 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
         }
     };
 
+    const handleUpdateSalary = async (userId: string, newRate: number) => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            const response = await fetch(
+                `https://worktime-dux3.onrender.com/api/salary/rate/${userId}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ hourlyRate: newRate })
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Reload employees to get updated rates
+                    await loadEmployees();
+                    setEditingSalary(null);
+                    alert('Cập nhật mức lương thành công!');
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra khi cập nhật mức lương!');
+                }
+            } else {
+                const errorData = await response.json();
+                alert(errorData.message || 'Có lỗi xảy ra khi cập nhật mức lương!');
+            }
+        } catch (error) {
+            console.error('Error updating salary:', error);
+            alert('Có lỗi xảy ra khi cập nhật mức lương!');
+        }
+    };
+
     const handleAddEmployee = () => {
         setFormData({
             name: '',
             username: '',
             password: '',
             email: '',
-            role: 'staff'
+            role: 'staff',
+            hourlyRate: 0
         });
         setShowAddModal(true);
     };
@@ -149,19 +197,29 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
+            // Prepare user data without hourlyRate for user creation
+            const { hourlyRate, ...userData } = formData;
+
             const response = await fetch('https://worktime-dux3.onrender.com/api/users', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(userData)
             });
 
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
-                    setEmployees(prev => [...prev, data.data?.user || data.user]);
+                    const newUser = data.data?.user || data.user;
+
+                    // Set salary if provided
+                    if (hourlyRate > 0) {
+                        await handleUpdateSalary(newUser._id || newUser.id, hourlyRate);
+                    }
+
+                    setEmployees(prev => [...prev, { ...newUser, hourlyRate }]);
                     setShowAddModal(false);
                     alert('Thêm nhân viên thành công!');
                 }
@@ -255,6 +313,9 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                     Vai trò
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Mức lương/giờ
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Thao tác
                                 </th>
                             </tr>
@@ -278,6 +339,49 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                             }`}>
                                             {employee.role === 'admin' ? 'Admin' : 'Staff'}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {editingSalary?.userId === employee.id ? (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number"
+                                                    value={editingSalary.rate}
+                                                    onChange={(e) => setEditingSalary(prev =>
+                                                        prev ? { ...prev, rate: parseFloat(e.target.value) || 0 } : null
+                                                    )}
+                                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                    min="0"
+                                                    step="1000"
+                                                />
+                                                <button
+                                                    onClick={() => handleUpdateSalary(employee.id, editingSalary.rate)}
+                                                    className="text-green-600 hover:text-green-900"
+                                                    title="Lưu"
+                                                >
+                                                    <Save className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingSalary(null)}
+                                                    className="text-gray-600 hover:text-gray-900"
+                                                    title="Hủy"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-900">
+                                                    {employee.hourlyRate ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(employee.hourlyRate) : 'Chưa thiết lập'}
+                                                </span>
+                                                <button
+                                                    onClick={() => setEditingSalary({ userId: employee.id, rate: employee.hourlyRate || 0 })}
+                                                    className="text-blue-600 hover:text-blue-900"
+                                                    title="Chỉnh sửa lương"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center gap-2">
@@ -323,7 +427,9 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                 </div>
 
                                 <div className="mb-3">
-                                    <p className="text-xs text-gray-600">{employee.email || 'N/A'}</p>
+                                    <p className="text-xs text-gray-600">
+                                        {employee.hourlyRate ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(employee.hourlyRate) : 'Chưa thiết lập lương'}
+                                    </p>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -431,6 +537,29 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                     <option value="staff">Staff</option>
                                     <option value="admin">Admin</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mức lương/giờ (VND)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.hourlyRate}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                                    disabled={!isEditing}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                    min="0"
+                                    step="1000"
+                                />
+                                {!isEditing && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {formData.hourlyRate > 0
+                                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.hourlyRate)
+                                            : 'Chưa thiết lập'
+                                        }
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -542,6 +671,21 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                     <option value="staff">Staff</option>
                                     <option value="admin">Admin</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mức lương/giờ (VND) *
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.hourlyRate}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    min="0"
+                                    step="1000"
+                                    required
+                                />
                             </div>
                         </div>
 
