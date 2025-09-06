@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit } from 'lucide-react';
+import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -47,6 +47,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+    const [calculatingSalary, setCalculatingSalary] = useState<string | null>(null);
 
     const loadEmployeesAttendance = useCallback(async () => {
         try {
@@ -151,6 +152,47 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
         } catch (error) {
             console.error('Error updating attendance record:', error);
             alert('Có lỗi xảy ra khi cập nhật!');
+        }
+    };
+
+    const handleCalculateSalary = async (userId: string, name: string) => {
+        try {
+            setCalculatingSalary(userId);
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            const month = selectedMonth.getMonth() + 1;
+            const year = selectedMonth.getFullYear();
+
+            const response = await fetch('https://worktime-dux3.onrender.com/api/salary/calculate', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ userId, month, year })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    const result = data.data;
+                    alert(`Tính lương thành công cho ${name}!\n\n` +
+                        `Tháng: ${month}/${year}\n` +
+                        `Mức lương/giờ: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(result.hourlyRate)}\n` +
+                        `Tổng giờ: ${Math.floor(result.totalHours)}h ${Math.round((result.totalHours - Math.floor(result.totalHours)) * 60)}m\n` +
+                        `Tổng lương: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(result.totalSalary)}`);
+                } else {
+                    alert('Không thể tính lương. Vui lòng kiểm tra dữ liệu chấm công.');
+                }
+            } else {
+                alert('Có lỗi xảy ra khi tính lương!');
+            }
+        } catch (error) {
+            console.error('Error calculating salary:', error);
+            alert('Có lỗi xảy ra khi tính lương!');
+        } finally {
+            setCalculatingSalary(null);
         }
     };
 
@@ -281,13 +323,23 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button
-                                            onClick={() => loadEmployeeAttendance(employee)}
-                                            className="text-blue-600 hover:text-blue-900 p-1"
-                                            title="Xem chi tiết chấm công"
-                                        >
-                                            <Eye className="h-4 w-4" />
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => loadEmployeeAttendance(employee)}
+                                                className="text-blue-600 hover:text-blue-900 p-1"
+                                                title="Xem chi tiết chấm công"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleCalculateSalary(employee.userId, employee.name)}
+                                                disabled={calculatingSalary === employee.userId}
+                                                className="text-purple-600 hover:text-purple-900 disabled:text-gray-400 p-1"
+                                                title="Tính lương"
+                                            >
+                                                <DollarSign className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -305,13 +357,23 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         <h3 className="text-sm font-semibold text-gray-900">{employee.name}</h3>
                                         <p className="text-xs text-gray-500">{employee.email}</p>
                                     </div>
-                                    <button
-                                        onClick={() => loadEmployeeAttendance(employee)}
-                                        className="text-blue-600 hover:text-blue-900 p-2"
-                                        title="Xem chi tiết chấm công"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => loadEmployeeAttendance(employee)}
+                                            className="text-blue-600 hover:text-blue-900 p-2"
+                                            title="Xem chi tiết chấm công"
+                                        >
+                                            <Eye className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleCalculateSalary(employee.userId, employee.name)}
+                                            disabled={calculatingSalary === employee.userId}
+                                            className="text-purple-600 hover:text-purple-900 disabled:text-gray-400 p-2"
+                                            title="Tính lương"
+                                        >
+                                            <DollarSign className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
@@ -403,9 +465,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="time"
-                                                            value={record.checkInTimeFormatted ? record.checkInTimeFormatted.split(' ')[1] || record.checkInTimeFormatted : (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '')}
+                                                            value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toTimeString().slice(0, 5) : ''}
                                                             onChange={(e) => {
-                                                                const currentDate = new Date(record.checkInTime);
+                                                                const currentDate = new Date(editingRecord.checkInTime);
                                                                 const [hours, minutes] = e.target.value.split(':');
                                                                 currentDate.setHours(parseInt(hours), parseInt(minutes));
                                                                 setEditingRecord(prev =>
@@ -422,9 +484,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="time"
-                                                            value={record.checkOutTimeFormatted ? record.checkOutTimeFormatted.split(' ')[1] || record.checkOutTimeFormatted : (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '')}
+                                                            value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toTimeString().slice(0, 5) : ''}
                                                             onChange={(e) => {
-                                                                const currentDate = new Date(record.checkOutTime || new Date());
+                                                                const currentDate = new Date(editingRecord.checkOutTime || new Date());
                                                                 const [hours, minutes] = e.target.value.split(':');
                                                                 currentDate.setHours(parseInt(hours), parseInt(minutes));
                                                                 setEditingRecord(prev =>
@@ -441,7 +503,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="text"
-                                                            value={record.officeId || ''}
+                                                            value={editingRecord.officeId || ''}
                                                             onChange={(e) => setEditingRecord(prev =>
                                                                 prev ? { ...prev, officeId: e.target.value } : null
                                                             )}
@@ -519,9 +581,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                         <div className="flex gap-2">
                                                             <input
                                                                 type="time"
-                                                                value={record.checkInTimeFormatted ? record.checkInTimeFormatted.split(' ')[1] || record.checkInTimeFormatted : (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '')}
+                                                                value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toTimeString().slice(0, 5) : ''}
                                                                 onChange={(e) => {
-                                                                    const currentDate = new Date(record.checkInTime);
+                                                                    const currentDate = new Date(editingRecord.checkInTime);
                                                                     const [hours, minutes] = e.target.value.split(':');
                                                                     currentDate.setHours(parseInt(hours), parseInt(minutes));
                                                                     setEditingRecord(prev =>
@@ -533,9 +595,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             <span>-</span>
                                                             <input
                                                                 type="time"
-                                                                value={record.checkOutTimeFormatted ? record.checkOutTimeFormatted.split(' ')[1] || record.checkOutTimeFormatted : (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '')}
+                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toTimeString().slice(0, 5) : ''}
                                                                 onChange={(e) => {
-                                                                    const currentDate = new Date(record.checkOutTime || new Date());
+                                                                    const currentDate = new Date(editingRecord.checkOutTime || new Date());
                                                                     const [hours, minutes] = e.target.value.split(':');
                                                                     currentDate.setHours(parseInt(hours), parseInt(minutes));
                                                                     setEditingRecord(prev =>
@@ -557,7 +619,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="text"
-                                                            value={record.officeId || ''}
+                                                            value={editingRecord.officeId || ''}
                                                             onChange={(e) => setEditingRecord(prev =>
                                                                 prev ? { ...prev, officeId: e.target.value } : null
                                                             )}

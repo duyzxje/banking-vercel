@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, CalendarClock, Settings, Users } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, BarChart3, CalendarClock, Settings, Users, DollarSign } from 'lucide-react';
 import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
 import ShiftTable from './ShiftTable';
 import EmployeeManagement from './EmployeeManagement';
 import AttendanceManagement from './AttendanceManagement';
+import SalaryManagement from './SalaryManagement';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -63,7 +64,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary'>('overview');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -869,8 +870,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       ? 'border-red-500 text-red-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
+                    title="Tổng quan"
                   >
-                    Tổng quan
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Tổng quan</span>
+                    </div>
                   </button>
                   <button
                     onClick={() => setAdminSubTab('employees')}
@@ -878,8 +883,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       ? 'border-red-500 text-red-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
+                    title="Quản lý nhân viên"
                   >
-                    Quản lý nhân viên
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Quản lý nhân viên</span>
+                    </div>
                   </button>
                   <button
                     onClick={() => setAdminSubTab('attendance')}
@@ -887,8 +896,25 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       ? 'border-red-500 text-red-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
+                    title="Quản lý chấm công"
                   >
-                    Quản lý chấm công
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Quản lý chấm công</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setAdminSubTab('salary')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'salary'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    title="Quản lý lương"
+                  >
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Quản lý lương</span>
+                    </div>
                   </button>
                 </nav>
               </div>
@@ -971,7 +997,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="bg-gray-50 rounded-lg p-6">
                         <div className="flex items-center mb-4">
                           <Users className="h-8 w-8 text-blue-600 mr-3" />
@@ -999,6 +1025,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                           Xem báo cáo chấm công
                         </button>
                       </div>
+
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="flex items-center mb-4">
+                          <DollarSign className="h-8 w-8 text-yellow-600 mr-3" />
+                          <h3 className="text-lg font-semibold text-gray-800">Quản lý lương</h3>
+                        </div>
+                        <p className="text-gray-600 mb-4">Tính lương và quản lý mức lương theo giờ của nhân viên</p>
+                        <button
+                          onClick={() => setAdminSubTab('salary')}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Xem báo cáo lương
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1009,6 +1049,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                 {adminSubTab === 'attendance' && (
                   <AttendanceManagement isAdmin={userRole === 'admin'} />
+                )}
+
+                {adminSubTab === 'salary' && (
+                  <SalaryManagement isAdmin={userRole === 'admin'} />
                 )}
               </div>
             </div>
