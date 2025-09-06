@@ -30,7 +30,8 @@ interface EmployeeAttendance {
     name: string;
     email: string;
     username: string;
-    attendanceCount: number;
+    attendanceDays: string;    // Format: "20/31"
+    attendanceRatio: string;   // Format: "65%"
     dailyRecords: DailyRecord[];
 }
 
@@ -287,7 +288,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                     Email
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Số lần chấm công
+                                    Số ngày chấm công
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Tỷ lệ
@@ -307,18 +308,18 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         {employee.email}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {employee.attendanceCount} / {new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()}
+                                        {employee.attendanceDays}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                                 <div
                                                     className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${(employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100}%` }}
+                                                    style={{ width: employee.attendanceRatio }}
                                                 ></div>
                                             </div>
                                             <span className="text-xs text-gray-500">
-                                                {Math.round((employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100)}%
+                                                {employee.attendanceRatio}
                                             </span>
                                         </div>
                                     </td>
@@ -378,9 +379,9 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
 
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs text-gray-600">Số lần chấm công:</span>
+                                        <span className="text-xs text-gray-600">Số ngày chấm công:</span>
                                         <span className="text-sm font-medium text-gray-900">
-                                            {employee.attendanceCount} / {new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()}
+                                            {employee.attendanceDays}
                                         </span>
                                     </div>
 
@@ -390,11 +391,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <div className="w-12 bg-gray-200 rounded-full h-2">
                                                 <div
                                                     className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${(employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100}%` }}
+                                                    style={{ width: employee.attendanceRatio }}
                                                 ></div>
                                             </div>
                                             <span className="text-xs text-gray-500">
-                                                {Math.round((employee.attendanceCount / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate()) * 100)}%
+                                                {employee.attendanceRatio}
                                             </span>
                                         </div>
                                     </div>
@@ -465,11 +466,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="time"
-                                                            value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toTimeString().slice(0, 5) : ''}
+                                                            value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
                                                             onChange={(e) => {
                                                                 const currentDate = new Date(editingRecord.checkInTime);
                                                                 const [hours, minutes] = e.target.value.split(':');
-                                                                currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
                                                                 setEditingRecord(prev =>
                                                                     prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
                                                                 );
@@ -477,18 +478,18 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '--:--')
+                                                        record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
                                                         <input
                                                             type="time"
-                                                            value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toTimeString().slice(0, 5) : ''}
+                                                            value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
                                                             onChange={(e) => {
                                                                 const currentDate = new Date(editingRecord.checkOutTime || new Date());
                                                                 const [hours, minutes] = e.target.value.split(':');
-                                                                currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
                                                                 setEditingRecord(prev =>
                                                                     prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
                                                                 );
@@ -496,7 +497,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '--:--')
+                                                        record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -581,11 +582,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                         <div className="flex gap-2">
                                                             <input
                                                                 type="time"
-                                                                value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toTimeString().slice(0, 5) : ''}
+                                                                value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
                                                                 onChange={(e) => {
                                                                     const currentDate = new Date(editingRecord.checkInTime);
                                                                     const [hours, minutes] = e.target.value.split(':');
-                                                                    currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                    currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
                                                                     setEditingRecord(prev =>
                                                                         prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
                                                                     );
@@ -595,11 +596,11 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             <span>-</span>
                                                             <input
                                                                 type="time"
-                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toTimeString().slice(0, 5) : ''}
+                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
                                                                 onChange={(e) => {
                                                                     const currentDate = new Date(editingRecord.checkOutTime || new Date());
                                                                     const [hours, minutes] = e.target.value.split(':');
-                                                                    currentDate.setHours(parseInt(hours), parseInt(minutes));
+                                                                    currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
                                                                     setEditingRecord(prev =>
                                                                         prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
                                                                     );
@@ -608,7 +609,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             />
                                                         </div>
                                                     ) : (
-                                                        `${record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '--:--')} - ${record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '--:--')}`
+                                                        `${record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')} - ${record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')}`
                                                     )}
                                                 </span>
                                             </div>
