@@ -14,6 +14,51 @@ import {
 } from './ShiftTableTypes';
 import Popup, { PopupType } from './Popup';
 
+// Cấu hình giới hạn đăng ký ca (đồng bộ với ShiftSettings)
+interface TimeOfDay {
+    hour: number;
+    minute: number;
+}
+
+interface ShiftRegistrationSettings {
+    enabled: boolean;
+    windowStartOffsetDays: number;
+    windowEndOffsetDays: number;
+    startTime: TimeOfDay;
+    endTime: TimeOfDay;
+}
+
+interface PublicShiftRegistrationSettings extends ShiftRegistrationSettings {
+    nextWeekStartDate: string; // YYYY-MM-DD (Monday of next week)
+    windowStartAt: string; // ISO datetime when window opens
+    windowEndAt: string;   // ISO datetime when window closes
+}
+
+interface SettingsResponse {
+    success: boolean;
+    data?: {
+        enabled: boolean;
+        windowStartOffsetDays: number;
+        windowEndOffsetDays: number;
+        startTime: TimeOfDay;
+        endTime: TimeOfDay;
+        nextWeekStartDate: string;
+        windowStartAt: string;
+        windowEndAt: string;
+    };
+}
+
+const defaultSettings: PublicShiftRegistrationSettings = {
+    enabled: true,
+    windowStartOffsetDays: -3,
+    windowEndOffsetDays: -2,
+    startTime: { hour: 0, minute: 0 },
+    endTime: { hour: 23, minute: 59 },
+    nextWeekStartDate: '',
+    windowStartAt: '',
+    windowEndAt: ''
+};
+
 const ShiftTable: React.FC<ShiftTableProps> = ({
     userId,
     isAdmin,
@@ -36,6 +81,8 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
     const [currentDate, setCurrentDate] = useState<Date>(weekStartDate || new Date());
     const [employees, setEmployees] = useState<EmployeeShift[]>([]);
     const [liveEvents, setLiveEvents] = useState<Record<number, ShiftType[]>>({});
+    const [settings, setSettings] = useState<PublicShiftRegistrationSettings>(defaultSettings);
+    const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
     // Removed unused loading state
 
     // Format ngày theo định dạng YYYY-MM-DD
@@ -120,6 +167,55 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
         loadShiftData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentDate]);
+
+    // Tải cấu hình giới hạn đăng ký ca
+    useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                const res = await fetch('https://worktime-dux3.onrender.com/api/settings/public/shift-registration', { headers, cache: 'no-store' });
+                if (res.ok) {
+                    const data: SettingsResponse = await res.json();
+                    if (data.success && data.data) {
+                        setSettings(data.data as PublicShiftRegistrationSettings);
+                    }
+                }
+            } catch (e) {
+                console.warn('Không thể tải cấu hình đăng ký ca. Dùng mặc định.');
+            } finally {
+                setSettingsLoaded(true);
+            }
+        };
+        loadSettings();
+    }, []);
+
+    // Helper xác định quyền chỉnh sửa theo cửa sổ đăng ký cho tuần xem là tuần sau
+    const getWeekStart = (date: Date): Date => startOfWeek(date, { weekStartsOn: 1 });
+    const getNextWeekStart = (date: Date): Date => addWeeks(getWeekStart(date), 1);
+    const sameYMD = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    const atTime = (base: Date, t: TimeOfDay) => {
+        const d = new Date(base);
+        d.setHours(t.hour, t.minute, 0, 0);
+        return d;
+    };
+    const withinWindow = (): boolean => {
+        if (!settings.enabled) return true;
+        if (!settings.windowStartAt || !settings.windowEndAt) return false;
+        const start = new Date(settings.windowStartAt);
+        const end = new Date(settings.windowEndAt);
+        const now = new Date();
+        return now >= start && now <= end;
+    };
+    const isEditableForView = (): boolean => {
+        if (isAdmin) return true; // admin không bị giới hạn
+        if (!settingsLoaded) return false; // chờ cấu hình
+        const viewedWeekStart = getWeekStart(currentDate);
+        // server xác định Monday tuần sau
+        if (!settings.nextWeekStartDate) return false;
+        const serverNextWeekStart = new Date(settings.nextWeekStartDate + 'T00:00:00');
+        if (!sameYMD(viewedWeekStart, serverNextWeekStart)) return false; // Chỉ cho tuần sau theo server
+        return withinWindow();
+    };
 
 
 
@@ -330,7 +426,8 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
     // Render các ca làm việc với giao diện mới theo yêu cầu
     const renderShiftCell = (employeeId: string, day: number, dayShifts: DayShifts) => {
-        const isEditable = (employeeId === userId && !isAdmin) || isAdmin;
+        const baseEditable = (employeeId === userId && !isAdmin) || isAdmin;
+        const isEditable = baseEditable && isEditableForView();
         const isLiveRow = employeeId === 'live';
 
         // Nếu là hàng Live
@@ -464,8 +561,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
             return (
                 <div className="p-1">
                     <button
-                        className="w-full bg-blue-500 text-white py-1 px-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center"
-                        onClick={(e) => openShiftModal(employeeId, day, dayShifts, false, e)}
+                        className={`w-full ${isEditable ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'} py-1 px-2 rounded transition-colors flex items-center justify-center`}
+                        onClick={(e) => { if (isEditable) openShiftModal(employeeId, day, dayShifts, false, e); }}
+                        disabled={!isEditable}
                     >
                         <Plus size={14} className="mr-1" /> Thêm ca
                     </button>
@@ -479,8 +577,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     <div className="bg-blue-200 text-blue-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
                         <span>Sáng</span>
                         <button
-                            onClick={() => handleShiftToggle(employeeId, day, 'morning')}
-                            className="text-blue-700 hover:text-blue-900 focus:outline-none"
+                            onClick={() => { if (isEditable) handleShiftToggle(employeeId, day, 'morning'); }}
+                            className={`focus:outline-none ${isEditable ? 'text-blue-700 hover:text-blue-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            disabled={!isEditable}
                         >
                             ×
                         </button>
@@ -491,8 +590,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     <div className="bg-yellow-200 text-yellow-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
                         <span>Trưa</span>
                         <button
-                            onClick={() => handleShiftToggle(employeeId, day, 'noon')}
-                            className="text-yellow-700 hover:text-yellow-900 focus:outline-none"
+                            onClick={() => { if (isEditable) handleShiftToggle(employeeId, day, 'noon'); }}
+                            className={`focus:outline-none ${isEditable ? 'text-yellow-700 hover:text-yellow-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            disabled={!isEditable}
                         >
                             ×
                         </button>
@@ -503,8 +603,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     <div className="bg-green-200 text-green-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
                         <span>Chiều</span>
                         <button
-                            onClick={() => handleShiftToggle(employeeId, day, 'afternoon')}
-                            className="text-green-700 hover:text-green-900 focus:outline-none"
+                            onClick={() => { if (isEditable) handleShiftToggle(employeeId, day, 'afternoon'); }}
+                            className={`focus:outline-none ${isEditable ? 'text-green-700 hover:text-green-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            disabled={!isEditable}
                         >
                             ×
                         </button>
@@ -515,8 +616,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     <div className="bg-purple-200 text-purple-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
                         <span>Tối</span>
                         <button
-                            onClick={() => handleShiftToggle(employeeId, day, 'evening')}
-                            className="text-purple-700 hover:text-purple-900 focus:outline-none"
+                            onClick={() => { if (isEditable) handleShiftToggle(employeeId, day, 'evening'); }}
+                            className={`focus:outline-none ${isEditable ? 'text-purple-700 hover:text-purple-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            disabled={!isEditable}
                         >
                             ×
                         </button>
@@ -527,8 +629,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     <div className="bg-red-200 text-red-800 rounded-md py-1 px-2 text-xs font-medium flex justify-between items-center">
                         <span>Off</span>
                         <button
-                            onClick={() => handleShiftToggle(employeeId, day, 'off')}
-                            className="text-red-700 hover:text-red-900 focus:outline-none"
+                            onClick={() => { if (isEditable) handleShiftToggle(employeeId, day, 'off'); }}
+                            className={`focus:outline-none ${isEditable ? 'text-red-700 hover:text-red-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            disabled={!isEditable}
                         >
                             ×
                         </button>
@@ -537,8 +640,9 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
                 {/* Nút thay đổi ca luôn hiển thị khi có ca để có thể điều chỉnh */}
                 <button
-                    className="bg-blue-100 text-blue-600 py-1 px-2 rounded hover:bg-blue-200 transition-colors text-xs flex items-center justify-center"
-                    onClick={(e) => openShiftModal(employeeId, day, dayShifts, false, e)}
+                    className={`py-1 px-2 rounded transition-colors text-xs flex items-center justify-center ${isEditable ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                    onClick={(e) => { if (isEditable) openShiftModal(employeeId, day, dayShifts, false, e); }}
+                    disabled={!isEditable}
                 >
                     <CalendarClock size={12} className="mr-1" /> Thay đổi
                 </button>

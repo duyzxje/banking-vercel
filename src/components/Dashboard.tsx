@@ -6,6 +6,7 @@ import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
 import ShiftTable from './ShiftTable';
+import ShiftSettings from './ShiftSettings';
 import EmployeeManagement from './EmployeeManagement';
 import AttendanceManagement from './AttendanceManagement';
 import SalaryManagement from './SalaryManagement';
@@ -64,7 +65,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary' | 'shiftSettings'>('overview');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -916,6 +917,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                       <span className="hidden sm:inline">Quản lý lương</span>
                     </div>
                   </button>
+                  <button
+                    onClick={() => setAdminSubTab('shiftSettings')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'shiftSettings'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    title="Cấu hình đăng ký ca"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Settings className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Cấu hình ca</span>
+                    </div>
+                  </button>
                 </nav>
               </div>
 
@@ -1053,6 +1067,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                 {adminSubTab === 'salary' && (
                   <SalaryManagement isAdmin={userRole === 'admin'} />
+                )}
+
+                {adminSubTab === 'shiftSettings' && (
+                  <ShiftSettings isAdmin={userRole === 'admin'} />
                 )}
               </div>
             </div>
