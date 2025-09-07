@@ -13,10 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Giorlin",
-  description: "Giorlin",
+  title: "WorkTime Banking App",
+  description: "Ứng dụng quản lý thời gian làm việc và thông báo",
   manifest: "/manifest.webmanifest",
   themeColor: "#2563eb",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
@@ -24,7 +25,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Giorlin",
+    title: "WorkTime",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
 };
 

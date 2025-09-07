@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, BarChart3, CalendarClock, Settings, Users, DollarSign } from 'lucide-react';
+import { LogOut, CreditCard, RefreshCw, Search, X, Menu, Clock, Home, ChevronRight, MapPin, Calendar, BarChart, BarChart3, CalendarClock, Settings, Users, DollarSign, Bell, Trash2 } from 'lucide-react';
 import Popup from './Popup';
 import AttendanceService from './AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from './AttendanceTypes';
@@ -10,6 +10,13 @@ import ShiftSettings from './ShiftSettings';
 import EmployeeManagement from './EmployeeManagement';
 import AttendanceManagement from './AttendanceManagement';
 import SalaryManagement from './SalaryManagement';
+import NotificationPopup from './NotificationPopup';
+import NotificationService from './NotificationService';
+import { Notification, User, CreateNotificationData } from './NotificationTypes';
+import useNotificationSocket from './useNotificationSocket';
+import PushNotificationSettings from './PushNotificationSettings';
+import usePushNotifications from './usePushNotifications';
+import ServiceWorkerRegistration from './ServiceWorkerRegistration';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -65,7 +72,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary' | 'shiftSettings'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary' | 'shiftSettings' | 'pushSettings'>('overview');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
   const [attendanceError, setAttendanceError] = useState<string>('');
@@ -90,6 +97,51 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }>>([]);
   const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
 
+  // Notification states
+  const [notificationOpen, setNotificationOpen] = useState<boolean>(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
+
+  // Admin notification creation states
+  const [newNotificationTitle, setNewNotificationTitle] = useState<string>('');
+  const [newNotificationContent, setNewNotificationContent] = useState<string>('');
+  const [newNotificationType, setNewNotificationType] = useState<'info' | 'success' | 'warning' | 'error'>('info');
+  const [isCreatingNotification, setIsCreatingNotification] = useState<boolean>(false);
+
+  // Advanced notification features
+  const [notificationSendType, setNotificationSendType] = useState<'single' | 'multiple' | 'all' | 'role' | 'template'>('single');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<string>('staff');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('welcome');
+  const [expiryDate, setExpiryDate] = useState<string>('');
+
+  // WebSocket integration
+  const token = localStorage.getItem('token');
+  const {
+    isConnected: socketConnected,
+    unreadCount: socketUnreadCount,
+    notifications: socketNotifications,
+    connectionError: socketError,
+    joinRoom,
+    leaveRoom
+  } = useNotificationSocket(token);
+
+  // Push Notifications integration
+  const {
+    isInitialized: pushInitialized,
+    isSubscribed: pushSubscribed,
+    permission: pushPermission,
+    isLoading: pushLoading,
+    error: pushError,
+    subscribe: pushSubscribe,
+    unsubscribe: pushUnsubscribe,
+    testPush: pushTest,
+    isSupported: pushSupported
+  } = usePushNotifications();
+
   useEffect(() => {
     loadData();
     loadUserProfile();
@@ -99,8 +151,85 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       checkForNewTransactions();
     }, 15000);
 
-    return () => clearInterval(interval);
+    // Subscribe to notification changes
+    const unsubscribeNotifications = NotificationService.subscribe((notifications) => {
+      const unreadCount = notifications.filter(n => !n.isRead).length;
+      setUnreadNotificationCount(unreadCount);
+
+      // Set recent notifications (last 3 unread)
+      const recent = notifications.filter(n => !n.isRead).slice(0, 3);
+      setRecentNotifications(recent);
+    });
+
+    // Subscribe to unread count changes
+    const unsubscribeUnreadCount = NotificationService.subscribeToUnreadCount((count) => {
+      setUnreadNotificationCount(count);
+    });
+
+    // Load notifications for admin
+    if (userRole === 'admin') {
+      loadAllNotifications();
+      loadUsers(); // Load users for selection
+    } else {
+      // Load recent notifications for non-admin users
+      loadRecentNotifications();
+    }
+
+    return () => {
+      clearInterval(interval);
+      unsubscribeNotifications();
+      unsubscribeUnreadCount();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // WebSocket room management
+  useEffect(() => {
+    if (socketConnected && userId) {
+      // Join user's personal room
+      joinRoom(`user_${userId}`);
+
+      // If admin, also join admin room
+      if (userRole === 'admin') {
+        joinRoom('admin_room');
+      }
+    }
+
+    return () => {
+      if (userId) {
+        leaveRoom(`user_${userId}`);
+        if (userRole === 'admin') {
+          leaveRoom('admin_room');
+        }
+      }
+    };
+  }, [socketConnected, userId, userRole, joinRoom, leaveRoom]);
+
+  // Sync WebSocket notifications with local state
+  useEffect(() => {
+    if (socketNotifications.length > 0) {
+      setRecentNotifications(socketNotifications.slice(0, 3));
+    }
+  }, [socketNotifications]);
+
+  // Update unread count from WebSocket
+  useEffect(() => {
+    if (socketUnreadCount !== undefined) {
+      setUnreadNotificationCount(socketUnreadCount);
+    }
+  }, [socketUnreadCount]);
+
+  // Listen for custom event to switch to home tab (from notification popup)
+  useEffect(() => {
+    const handleSwitchToHomeTab = () => {
+      setActiveTab('home');
+    };
+
+    window.addEventListener('switchToHomeTab', handleSwitchToHomeTab);
+
+    return () => {
+      window.removeEventListener('switchToHomeTab', handleSwitchToHomeTab);
+    };
   }, []);
 
 
@@ -134,6 +263,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       }
     } catch (error) {
       console.error('Failed to load user profile:', error);
+      // Set default values for demo mode
+      setUserName('Demo User');
+      setUserId('demo-user-id');
+      setUserRole('admin'); // Set as admin for demo
     }
   };
 
@@ -524,6 +657,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setLastUpdateTime(new Date());
     } catch (error) {
       console.error('Check new transactions error:', error);
+      // Still update the time even if there's an error
+      setLastUpdateTime(new Date());
     }
   };
 
@@ -624,6 +759,121 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  // Load all notifications for admin
+  const loadAllNotifications = async () => {
+    try {
+      const notifications = await NotificationService.getAllNotifications();
+      setAllNotifications(notifications);
+    } catch (error) {
+      console.error('Error loading all notifications:', error);
+    }
+  };
+
+  // Load recent notifications for non-admin users
+  const loadRecentNotifications = async () => {
+    try {
+      const notifications = await NotificationService.getRecentNotifications(3);
+      setRecentNotifications(notifications);
+    } catch (error) {
+      console.error('Error loading recent notifications:', error);
+    }
+  };
+
+  // Load users for selection
+  const loadUsers = async (role?: string, search?: string) => {
+    try {
+      const users = await NotificationService.getUsers(role, search);
+      setAvailableUsers(users);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
+
+  // Handle create notification
+  const handleCreateNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setIsCreatingNotification(true);
+    try {
+      const notificationData: CreateNotificationData = {
+        title: newNotificationTitle.trim(),
+        content: newNotificationContent.trim(),
+        type: newNotificationType,
+        expiresAt: expiryDate ? new Date(expiryDate).toISOString() : undefined
+      };
+
+      switch (notificationSendType) {
+        case 'single':
+          await NotificationService.createNotification({
+            ...notificationData,
+            userId: userId // Send to current user for demo
+          });
+          break;
+
+        case 'multiple':
+          if (selectedUsers.length === 0) {
+            alert('Vui lòng chọn ít nhất một user');
+            return;
+          }
+          await NotificationService.createNotification({
+            ...notificationData,
+            userIds: selectedUsers
+          });
+          break;
+
+        case 'all':
+          await NotificationService.createNotificationForAll(notificationData);
+          break;
+
+        case 'role':
+          await NotificationService.createNotificationByRole(notificationData, selectedRole);
+          break;
+
+        case 'template':
+          if (selectedUsers.length === 0) {
+            alert('Vui lòng chọn ít nhất một user');
+            return;
+          }
+          await NotificationService.createNotificationFromTemplate(
+            selectedTemplate,
+            selectedUsers,
+            { name: 'User' } // Demo variables
+          );
+          break;
+      }
+
+      // Clear form
+      setNewNotificationTitle('');
+      setNewNotificationContent('');
+      setNewNotificationType('info');
+      setExpiryDate('');
+      setSelectedUsers([]);
+      setNotificationSendType('single');
+
+      // Reload notifications
+      await loadAllNotifications();
+
+      alert('Tạo thông báo thành công!');
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      alert('Có lỗi xảy ra khi tạo thông báo');
+    } finally {
+      setIsCreatingNotification(false);
+    }
+  };
+
+  // Handle delete notification
+  const handleDeleteNotification = async (notificationId: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa thông báo này?')) {
+      try {
+        await NotificationService.deleteNotification(notificationId);
+        await loadAllNotifications();
+      } catch (error) {
+        console.error('Error deleting notification:', error);
+      }
+    }
+  };
+
   const openTransactionDetail = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
   };
@@ -648,6 +898,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 md:pl-64">
+      {/* Service Worker Registration */}
+      <ServiceWorkerRegistration />
+
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -767,6 +1020,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <div className="text-xs sm:text-sm text-gray-800">
                 {new Date().toLocaleDateString('vi-VN')}
               </div>
+
+              {/* Notification Icon */}
+              <div className="relative">
+                <button
+                  onClick={() => setNotificationOpen(true)}
+                  className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors duration-200 relative"
+                  title="Thông báo"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
               {userName && (
                 <div className="flex flex-col sm:flex-row sm:items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
                   <span className="text-xs sm:text-sm font-medium text-center sm:text-left">
@@ -835,9 +1105,245 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="font-semibold text-lg text-gray-800 mb-4">Thông báo gần đây</h3>
-              <div className="p-4 bg-blue-50 rounded-lg text-blue-700 text-center">
-                <p>Không có thông báo mới</p>
-              </div>
+              {userRole === 'admin' ? (
+                <div className="space-y-4">
+                  {/* Admin: Form tạo thông báo mới */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-800 mb-3">Tạo thông báo mới</h4>
+                    <form onSubmit={handleCreateNotification} className="space-y-4">
+                      {/* Send Type Selection */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Loại gửi thông báo</label>
+                        <select
+                          value={notificationSendType}
+                          onChange={(e) => setNotificationSendType(e.target.value as any)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="single">Gửi cho 1 user</option>
+                          <option value="multiple">Gửi cho nhiều user</option>
+                          <option value="all">Gửi cho tất cả user</option>
+                          <option value="role">Gửi theo role</option>
+                          <option value="template">Tạo từ template</option>
+                        </select>
+                      </div>
+
+                      {/* Template Selection */}
+                      {notificationSendType === 'template' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Chọn template</label>
+                          <select
+                            value={selectedTemplate}
+                            onChange={(e) => setSelectedTemplate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="welcome">Chào mừng</option>
+                            <option value="attendance_reminder">Nhắc nhở chấm công</option>
+                            <option value="salary_update">Cập nhật lương</option>
+                            <option value="system_maintenance">Bảo trì hệ thống</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Role Selection */}
+                      {notificationSendType === 'role' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Chọn role</label>
+                          <select
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="staff">Staff</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* User Selection for Multiple */}
+                      {notificationSendType === 'multiple' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Chọn user</label>
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              placeholder="Tìm kiếm user..."
+                              value={userSearchTerm}
+                              onChange={(e) => {
+                                setUserSearchTerm(e.target.value);
+                                loadUsers('', e.target.value);
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg">
+                              {availableUsers.map((user) => (
+                                <label key={user._id} className="flex items-center p-2 hover:bg-gray-100">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUsers.includes(user._id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedUsers([...selectedUsers, user._id]);
+                                      } else {
+                                        setSelectedUsers(selectedUsers.filter(id => id !== user._id));
+                                      }
+                                    }}
+                                    className="mr-2"
+                                  />
+                                  <span className="text-sm">{user.name} ({user.role})</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Basic Notification Fields */}
+                      {notificationSendType !== 'template' && (
+                        <>
+                          <div>
+                            <input
+                              type="text"
+                              placeholder="Tiêu đề thông báo"
+                              value={newNotificationTitle}
+                              onChange={(e) => setNewNotificationTitle(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <textarea
+                              placeholder="Nội dung thông báo"
+                              value={newNotificationContent}
+                              onChange={(e) => setNewNotificationContent(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows={3}
+                              required
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Notification Type */}
+                      <div className="flex items-center space-x-3">
+                        <select
+                          value={newNotificationType}
+                          onChange={(e) => setNewNotificationType(e.target.value as 'info' | 'success' | 'warning' | 'error')}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="info">Thông tin</option>
+                          <option value="success">Thành công</option>
+                          <option value="warning">Cảnh báo</option>
+                          <option value="error">Lỗi</option>
+                        </select>
+
+                        {/* Expiry Date */}
+                        <input
+                          type="datetime-local"
+                          placeholder="Thời gian hết hạn (tùy chọn)"
+                          value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isCreatingNotification}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {isCreatingNotification ? 'Đang tạo...' : 'Tạo thông báo'}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Admin: Danh sách tất cả thông báo */}
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-800">Tất cả thông báo</h4>
+                    {allNotifications.length > 0 ? (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {allNotifications.map((notification) => (
+                          <div key={notification._id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-gray-900">{notification.title}</h5>
+                                <p className="text-sm text-gray-600 mt-1">{notification.content}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-2 ml-3">
+                                <span className={`px-2 py-1 text-xs rounded-full ${notification.type === 'info' ? 'bg-blue-100 text-blue-800' :
+                                  notification.type === 'success' ? 'bg-green-100 text-green-800' :
+                                    notification.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-red-100 text-red-800'
+                                  }`}>
+                                  {notification.type}
+                                </span>
+                                <button
+                                  onClick={() => handleDeleteNotification(notification._id)}
+                                  className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                                  title="Xóa thông báo"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+                        <p>Chưa có thông báo nào</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* User: Hiển thị thông báo gần đây */
+                <div className="space-y-3">
+                  {/* Recent Notifications */}
+                  {recentNotifications.length > 0 ? (
+                    <div className="space-y-2">
+                      {recentNotifications.map((notification) => (
+                        <div
+                          key={notification._id}
+                          className={`p-3 border rounded-lg transition-all duration-200 hover:shadow-md ${!notification.isRead
+                            ? 'bg-blue-50 border-blue-200 shadow-sm'
+                            : 'bg-gray-50 border-gray-200'
+                            }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <h5 className="font-medium text-gray-900">{notification.title}</h5>
+                                {!notification.isRead && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-700 mt-1">{notification.content}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                              </p>
+                            </div>
+                            <div className="ml-2">
+                              {notification.type === 'success' && <span className="text-green-600">✅</span>}
+                              {notification.type === 'warning' && <span className="text-yellow-600">⚠️</span>}
+                              {notification.type === 'error' && <span className="text-red-600">❌</span>}
+                              {notification.type === 'info' && <span className="text-blue-600">ℹ️</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-blue-50 rounded-lg text-blue-700 text-center">
+                      <p>Không có thông báo mới</p>
+                    </div>
+                  )}
+
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -928,6 +1434,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <div className="flex items-center gap-2">
                       <Settings className="h-4 w-4 sm:hidden" />
                       <span className="hidden sm:inline">Cấu hình ca</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setAdminSubTab('pushSettings')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${adminSubTab === 'pushSettings'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    title="Cài đặt thông báo Push"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 sm:hidden" />
+                      <span className="hidden sm:inline">Push Notifications</span>
                     </div>
                   </button>
                 </nav>
@@ -1071,6 +1590,64 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                 {adminSubTab === 'shiftSettings' && (
                   <ShiftSettings isAdmin={userRole === 'admin'} />
+                )}
+
+                {adminSubTab === 'pushSettings' && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Cài đặt Push Notifications</h3>
+                      <PushNotificationSettings />
+                    </div>
+
+                    {/* Push Notification Status */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Trạng thái Push Notifications</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium">Hỗ trợ trình duyệt</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushSupported
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                            }`}>
+                            {pushSupported ? 'Được hỗ trợ' : 'Không hỗ trợ'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium">Khởi tạo</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushInitialized
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {pushInitialized ? 'Đã khởi tạo' : 'Đang khởi tạo...'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium">Quyền thông báo</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushPermission === 'granted'
+                              ? 'bg-green-100 text-green-800'
+                              : pushPermission === 'denied'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {pushPermission === 'granted' ? 'Đã cấp quyền' :
+                              pushPermission === 'denied' ? 'Bị từ chối' : 'Chưa cấp quyền'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-700 font-medium">Đăng ký Push</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushSubscribed
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                            }`}>
+                            {pushSubscribed ? 'Đã đăng ký' : 'Chưa đăng ký'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -1654,6 +2231,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           </div>
         </div>
       )}
+
+      {/* Notification Popup */}
+      <NotificationPopup
+        isOpen={notificationOpen}
+        onClose={() => setNotificationOpen(false)}
+        isAdmin={userRole === 'admin'}
+      />
     </div>
   );
 }
+
