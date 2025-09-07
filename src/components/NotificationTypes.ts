@@ -1,4 +1,4 @@
-export interface Notification {
+export interface AppNotification {
     _id: string;
     title: string;
     content: string;
@@ -12,7 +12,7 @@ export interface Notification {
 }
 
 export interface NotificationState {
-    notifications: Notification[];
+    notifications: AppNotification[];
     unreadCount: number;
     isLoading: boolean;
     error: string | null;
@@ -27,17 +27,17 @@ export interface User {
 }
 
 export interface NotificationService {
-    getNotifications: () => Promise<Notification[]>;
+    getNotifications: () => Promise<AppNotification[]>;
     getUnreadCount: () => Promise<number>;
     markAsRead: (notificationId: string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
     deleteNotification: (notificationId: string) => Promise<void>;
     createNotification: (notification: CreateNotificationData) => Promise<void>;
-    getAllNotifications: () => Promise<Notification[]>;
+    getAllNotifications: () => Promise<AppNotification[]>;
     getUsers: (role?: string, search?: string) => Promise<User[]>;
     createNotificationForAll: (notification: Omit<CreateNotificationData, 'userId' | 'userIds'>) => Promise<void>;
     createNotificationByRole: (notification: Omit<CreateNotificationData, 'userId' | 'userIds'>, role: string) => Promise<void>;
-    createNotificationFromTemplate: (templateName: string, userIds: string[], variables?: Record<string, any>) => Promise<void>;
+    createNotificationFromTemplate: (templateName: string, userIds: string[], variables?: Record<string, unknown>) => Promise<void>;
 }
 
 export interface CreateNotificationData {

@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import NotificationSocket, { NotificationSocketCallbacks } from './NotificationSocket';
-import { Notification } from './NotificationTypes';
+import { AppNotification } from './NotificationTypes';
 
 interface UseNotificationSocketReturn {
     isConnected: boolean;
     unreadCount: number;
-    notifications: Notification[];
+    notifications: AppNotification[];
     connectionError: string | null;
     joinRoom: (room: string) => void;
     leaveRoom: (room: string) => void;
-    showToast: (notification: Notification) => void;
+    showToast: (notification: AppNotification) => void;
 }
 
 const useNotificationSocket = (token: string | null): UseNotificationSocketReturn => {
     const [isConnected, setIsConnected] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const socketRef = useRef<NotificationSocket | null>(null);
 
     // Toast notification function
-    const showToast = useCallback((notification: Notification) => {
+    const showToast = useCallback((notification: AppNotification) => {
         // Create toast element
         const toast = document.createElement('div');
         toast.className = 'fixed top-4 right-4 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm z-50 transform transition-all duration-300 ease-in-out translate-x-full';
@@ -82,19 +82,19 @@ const useNotificationSocket = (token: string | null): UseNotificationSocketRetur
             socketRef.current = new NotificationSocket(token);
 
             const callbacks: NotificationSocketCallbacks = {
-                onConnectionStatusChange: (connected) => {
+                onConnectionStatusChange: (connected: boolean) => {
                     setIsConnected(connected);
                     if (connected) {
                         setConnectionError(null);
                     }
                 },
 
-                onConnectionError: (error) => {
-                    setConnectionError(error.message || 'Connection error');
+                onConnectionError: (error: string) => {
+                    setConnectionError(error || 'Connection error');
                     setIsConnected(false);
                 },
 
-                onNewNotification: (notification) => {
+                onNewNotification: (notification: AppNotification) => {
                     setNotifications(prev => [notification, ...prev]);
                     setUnreadCount(prev => prev + 1);
 
@@ -102,13 +102,13 @@ const useNotificationSocket = (token: string | null): UseNotificationSocketRetur
                     showToast(notification);
                 },
 
-                onUnreadCountUpdate: (count) => {
+                onUnreadCountUpdate: (count: number) => {
                     setUnreadCount(count);
                 },
 
-                onNotificationRead: (notificationId) => {
+                onNotificationRead: (notificationId: string) => {
                     setNotifications(prev =>
-                        prev.map(notif =>
+                        prev.map((notif: AppNotification) =>
                             notif._id === notificationId
                                 ? { ...notif, isRead: true }
                                 : notif
@@ -116,30 +116,30 @@ const useNotificationSocket = (token: string | null): UseNotificationSocketRetur
                     );
                 },
 
-                onAllNotificationsRead: (count) => {
+                onAllNotificationsRead: () => {
                     setNotifications(prev =>
-                        prev.map(notif => ({ ...notif, isRead: true }))
+                        prev.map((notif: AppNotification) => ({ ...notif, isRead: true }))
                     );
                     setUnreadCount(0);
                 },
 
-                onNotificationUpdated: (notification) => {
+                onNotificationUpdated: (notification: AppNotification) => {
                     setNotifications(prev =>
-                        prev.map(notif =>
+                        prev.map((notif: AppNotification) =>
                             notif._id === notification._id ? notification : notif
                         )
                     );
                 },
 
-                onNotificationDeleted: (notificationId) => {
+                onNotificationDeleted: (notificationId: string) => {
                     setNotifications(prev =>
-                        prev.filter(notif => notif._id !== notificationId)
+                        prev.filter((notif: AppNotification) => notif._id !== notificationId)
                     );
                 },
 
-                onSystemNotification: (notification) => {
-                    // Show system notification as toast
-                    showToast(notification);
+                onSystemNotification: (notification: unknown) => {
+                    // Handle system notification
+                    console.log('System notification:', notification);
                 }
             };
 

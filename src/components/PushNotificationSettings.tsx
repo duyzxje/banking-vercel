@@ -1,6 +1,6 @@
 import React from 'react';
 import usePushNotifications from './usePushNotifications';
-import { Bell, BellOff, Wifi, WifiOff, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Bell, BellOff, AlertCircle, CheckCircle, X } from 'lucide-react';
 
 const PushNotificationSettings: React.FC = () => {
     const {
@@ -119,10 +119,10 @@ const PushNotificationSettings: React.FC = () => {
                             <span className="text-gray-700 font-medium">Trạng thái quyền</span>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${permission === 'granted'
-                                ? 'bg-green-100 text-green-800'
-                                : permission === 'denied'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : permission === 'denied'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {permission === 'granted' ? 'Đã cấp quyền' :
                                 permission === 'denied' ? 'Bị từ chối' : 'Chưa cấp quyền'}
@@ -142,8 +142,8 @@ const PushNotificationSettings: React.FC = () => {
                             <span className="text-gray-700 font-medium">Trạng thái đăng ký</span>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${isSubscribed
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
                             }`}>
                             {isSubscribed ? 'Đã đăng ký' : 'Chưa đăng ký'}
                         </span>
@@ -246,7 +246,7 @@ const PushNotificationSettings: React.FC = () => {
                                 </p>
                                 <ol className="text-yellow-700 text-sm mt-2 list-decimal list-inside space-y-1">
                                     <li>Mở Settings của trình duyệt</li>
-                                    <li>Tìm và chọn "Notifications" hoặc "Thông báo"</li>
+                                    <li>Tìm và chọn &quot;Notifications&quot; hoặc &quot;Thông báo&quot;</li>
                                     <li>Tìm trang web này và cho phép thông báo</li>
                                     <li>Refresh trang và thử lại</li>
                                 </ol>

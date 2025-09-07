@@ -180,7 +180,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                         setSettings(data.data as PublicShiftRegistrationSettings);
                     }
                 }
-            } catch (e) {
+            } catch {
                 console.warn('Không thể tải cấu hình đăng ký ca. Dùng mặc định.');
             } finally {
                 setSettingsLoaded(true);
@@ -191,13 +191,13 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
     // Helper xác định quyền chỉnh sửa theo cửa sổ đăng ký cho tuần xem là tuần sau
     const getWeekStart = (date: Date): Date => startOfWeek(date, { weekStartsOn: 1 });
-    const getNextWeekStart = (date: Date): Date => addWeeks(getWeekStart(date), 1);
+    // const getNextWeekStart = (date: Date): Date => addWeeks(getWeekStart(date), 1);
     const sameYMD = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    const atTime = (base: Date, t: TimeOfDay) => {
-        const d = new Date(base);
-        d.setHours(t.hour, t.minute, 0, 0);
-        return d;
-    };
+    // const atTime = (base: Date, t: TimeOfDay) => {
+    //     const d = new Date(base);
+    //     d.setHours(t.hour, t.minute, 0, 0);
+    //     return d;
+    // };
     const withinWindow = (): boolean => {
         if (!settings.enabled) return true;
         if (!settings.windowStartAt || !settings.windowEndAt) return false;

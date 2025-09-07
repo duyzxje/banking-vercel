@@ -1,9 +1,9 @@
-import { Notification, ApiResponse, User, CreateNotificationData } from './NotificationTypes';
+import { AppNotification, ApiResponse, User, CreateNotificationData } from './NotificationTypes';
 import PushNotificationManager from './PushNotificationManager';
 
 class NotificationServiceClass {
-    private notifications: Notification[] = [];
-    private listeners: ((notifications: Notification[]) => void)[] = [];
+    private notifications: AppNotification[] = [];
+    private listeners: ((notifications: AppNotification[]) => void)[] = [];
     private unreadCountListeners: ((count: number) => void)[] = [];
     private baseUrl = 'https://worktime-dux3.onrender.com/api';
     private pushManager: PushNotificationManager;
@@ -33,7 +33,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     this.notifications = result.data;
                     this.notifyListeners();
@@ -52,7 +52,7 @@ class NotificationServiceClass {
 
     // Load demo notifications as fallback
     private loadDemoNotifications(): void {
-        const demoNotifications: Notification[] = [
+        const demoNotifications: AppNotification[] = [
             {
                 _id: 'demo-1',
                 title: 'Chào mừng đến với hệ thống',
@@ -113,7 +113,7 @@ class NotificationServiceClass {
     }
 
     // Subscribe to notifications changes
-    subscribe(listener: (notifications: Notification[]) => void): () => void {
+    subscribe(listener: (notifications: AppNotification[]) => void): () => void {
         this.listeners.push(listener);
         // Immediately call with current notifications
         listener([...this.notifications]);
@@ -144,14 +144,14 @@ class NotificationServiceClass {
     }
 
     // Get all notifications
-    async getNotifications(): Promise<Notification[]> {
+    async getNotifications(): Promise<AppNotification[]> {
         try {
             const response = await fetch(`${this.baseUrl}/notifications/user`, {
                 headers: this.getAuthHeaders()
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     this.notifications = result.data;
                     this.notifyListeners();
@@ -200,7 +200,7 @@ class NotificationServiceClass {
                     const notification = this.notifications.find(n => n._id === notificationId);
                     if (notification) {
                         notification.isRead = true;
-                        notification.updatedAt = result.data.updatedAt;
+                        notification.updatedAt = new Date().toISOString();
                         this.notifyListeners();
                     }
                 }
@@ -260,7 +260,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<any> = await response.json();
+                const result: ApiResponse<unknown> = await response.json();
                 if (result.success) {
                     // Remove from local state
                     const index = this.notifications.findIndex(n => n._id === notificationId);
@@ -291,7 +291,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     // Add to local state
                     result.data.forEach(notification => {
@@ -342,7 +342,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     // Add to local state
                     result.data.forEach(notification => {
@@ -369,7 +369,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     // Add to local state
                     result.data.forEach(notification => {
@@ -384,7 +384,7 @@ class NotificationServiceClass {
     }
 
     // Create notification from template
-    async createNotificationFromTemplate(templateName: string, userIds: string[], variables?: Record<string, any>): Promise<void> {
+    async createNotificationFromTemplate(templateName: string, userIds: string[], variables?: Record<string, unknown>): Promise<void> {
         try {
             const response = await fetch(`${this.baseUrl}/notifications/from-template`, {
                 method: 'POST',
@@ -397,7 +397,7 @@ class NotificationServiceClass {
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     // Add to local state
                     result.data.forEach(notification => {
@@ -412,14 +412,14 @@ class NotificationServiceClass {
     }
 
     // Get all notifications (admin only)
-    async getAllNotifications(): Promise<Notification[]> {
+    async getAllNotifications(): Promise<AppNotification[]> {
         try {
             const response = await fetch(`${this.baseUrl}/notifications/admin/all`, {
                 headers: this.getAuthHeaders()
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     return result.data;
                 }
@@ -432,7 +432,7 @@ class NotificationServiceClass {
     }
 
     // WebSocket event handlers
-    handleNewNotification(notification: Notification): void {
+    handleNewNotification(notification: AppNotification): void {
         // Add new notification to the beginning of the list
         this.notifications.unshift(notification);
         this.notifyListeners();
@@ -463,7 +463,7 @@ class NotificationServiceClass {
         this.notifyListeners();
     }
 
-    handleNotificationUpdated(notification: Notification): void {
+    handleNotificationUpdated(notification: AppNotification): void {
         const index = this.notifications.findIndex(n => n._id === notification._id);
         if (index > -1) {
             this.notifications[index] = notification;
@@ -480,14 +480,14 @@ class NotificationServiceClass {
     }
 
     // Get recent notifications (for non-admin users)
-    async getRecentNotifications(limit: number = 3): Promise<Notification[]> {
+    async getRecentNotifications(limit: number = 3): Promise<AppNotification[]> {
         try {
             const response = await fetch(`${this.baseUrl}/notifications/user/recent?limit=${limit}`, {
                 headers: this.getAuthHeaders()
             });
 
             if (response.ok) {
-                const result: ApiResponse<Notification[]> = await response.json();
+                const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
                     return result.data;
                 }
@@ -524,7 +524,7 @@ class NotificationServiceClass {
         const randomTitle = titles[Math.floor(Math.random() * titles.length)];
         const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
-        const newNotification: Notification = {
+        const newNotification: AppNotification = {
             _id: `demo-${Date.now()}`,
             title: randomTitle,
             content: randomMessage,
@@ -621,4 +621,5 @@ class NotificationServiceClass {
 }
 
 // Export singleton instance
-export default new NotificationServiceClass();
+const notificationService = new NotificationServiceClass();
+export default notificationService;

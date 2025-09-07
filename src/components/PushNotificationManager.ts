@@ -98,7 +98,7 @@ class PushNotificationManager {
             // Tạo subscription mới
             const subscription = await this.registration!.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey!)
+                applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey!) as any
             });
 
             this.subscription = subscription;
@@ -142,7 +142,7 @@ class PushNotificationManager {
     }
 
     // Gửi subscription lên server
-    async sendSubscriptionToServer(subscription: PushSubscription): Promise<any> {
+    async sendSubscriptionToServer(subscription: PushSubscription): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch('/api/push/subscribe', {
@@ -173,7 +173,7 @@ class PushNotificationManager {
     }
 
     // Xóa subscription khỏi server
-    async removeSubscriptionFromServer(subscription: PushSubscription): Promise<any> {
+    async removeSubscriptionFromServer(subscription: PushSubscription): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch('/api/push/unsubscribe', {
@@ -203,7 +203,7 @@ class PushNotificationManager {
     }
 
     // Test push notification
-    async testPushNotification(): Promise<any> {
+    async testPushNotification(): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch('/api/push/test', {

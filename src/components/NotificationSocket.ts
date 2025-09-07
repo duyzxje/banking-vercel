@@ -1,15 +1,16 @@
 import { io, Socket } from 'socket.io-client';
+import { AppNotification } from './NotificationTypes';
 
 export interface NotificationSocketCallbacks {
     onConnectionStatusChange?: (isConnected: boolean) => void;
-    onConnectionError?: (error: any) => void;
-    onNewNotification?: (notification: any) => void;
+    onConnectionError?: (error: string) => void;
+    onNewNotification?: (notification: AppNotification) => void;
     onUnreadCountUpdate?: (count: number) => void;
     onNotificationRead?: (notificationId: string) => void;
     onAllNotificationsRead?: (count: number) => void;
-    onNotificationUpdated?: (notification: any) => void;
+    onNotificationUpdated?: (notification: AppNotification) => void;
     onNotificationDeleted?: (notificationId: string) => void;
-    onSystemNotification?: (notification: any) => void;
+    onSystemNotification?: (notification: unknown) => void;
     onConnectionStatus?: (status: string) => void;
 }
 
@@ -64,7 +65,7 @@ class NotificationSocket {
         // Lỗi kết nối
         this.socket.on('connect_error', (error) => {
             console.error('Connection error:', error);
-            this.callbacks.onConnectionError?.(error);
+            this.callbacks.onConnectionError?.(error.message || 'Connection error');
         });
 
         // Thông báo mới

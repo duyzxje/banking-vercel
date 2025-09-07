@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Bell, Check, Trash2, AlertCircle, CheckCircle, Info, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
-import { Notification } from './NotificationTypes';
+import { X, Bell, Trash2, AlertCircle, CheckCircle, Info, AlertTriangle, WifiOff } from 'lucide-react';
+import { AppNotification } from './NotificationTypes';
 import NotificationService from './NotificationService';
 import useNotificationSocket from './useNotificationSocket';
 
@@ -13,7 +13,7 @@ interface NotificationPopupProps {
 }
 
 export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: NotificationPopupProps) {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [shouldAnimate, setShouldAnimate] = useState(false);
@@ -22,9 +22,9 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
     const token = localStorage.getItem('token');
     const {
         isConnected: socketConnected,
-        unreadCount: socketUnreadCount,
         notifications: socketNotifications,
-        connectionError: socketError
+        joinRoom,
+        leaveRoom
     } = useNotificationSocket(token);
 
     useEffect(() => {
@@ -80,7 +80,7 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
         onClose();
     };
 
-    const handleNotificationClick = async (notification: Notification) => {
+    const handleNotificationClick = async (notification: AppNotification) => {
         try {
             if (!notification.isRead) {
                 await NotificationService.markAsRead(notification._id);
@@ -200,11 +200,11 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
                 </div>
 
                 {/* WebSocket Error Display */}
-                {socketError && (
+                {socketConnected === false && (
                     <div className="px-4 py-2 bg-red-50 border-b border-red-200">
                         <div className="flex items-center space-x-2">
                             <WifiOff className="h-4 w-4 text-red-500" />
-                            <span className="text-xs text-red-600">{socketError}</span>
+                            <span className="text-xs text-red-600">Mất kết nối</span>
                         </div>
                     </div>
                 )}

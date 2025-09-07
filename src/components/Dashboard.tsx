@@ -12,7 +12,7 @@ import AttendanceManagement from './AttendanceManagement';
 import SalaryManagement from './SalaryManagement';
 import NotificationPopup from './NotificationPopup';
 import NotificationService from './NotificationService';
-import { Notification, User, CreateNotificationData } from './NotificationTypes';
+import { AppNotification, User, CreateNotificationData } from './NotificationTypes';
 import useNotificationSocket from './useNotificationSocket';
 import PushNotificationSettings from './PushNotificationSettings';
 import usePushNotifications from './usePushNotifications';
@@ -97,11 +97,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }>>([]);
   const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
 
-  // Notification states
+  // AppNotification states
   const [notificationOpen, setNotificationOpen] = useState<boolean>(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
-  const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
-  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
+  const [recentNotifications, setRecentNotifications] = useState<AppNotification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<AppNotification[]>([]);
 
   // Admin notification creation states
   const [newNotificationTitle, setNewNotificationTitle] = useState<string>('');
@@ -124,7 +124,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     isConnected: socketConnected,
     unreadCount: socketUnreadCount,
     notifications: socketNotifications,
-    connectionError: socketError,
     joinRoom,
     leaveRoom
   } = useNotificationSocket(token);
@@ -134,11 +133,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     isInitialized: pushInitialized,
     isSubscribed: pushSubscribed,
     permission: pushPermission,
-    isLoading: pushLoading,
-    error: pushError,
-    subscribe: pushSubscribe,
-    unsubscribe: pushUnsubscribe,
-    testPush: pushTest,
     isSupported: pushSupported
   } = usePushNotifications();
 
@@ -152,7 +146,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }, 15000);
 
     // Subscribe to notification changes
-    const unsubscribeNotifications = NotificationService.subscribe((notifications) => {
+    const unsubscribeAppNotifications = NotificationService.subscribe((notifications: AppNotification[]) => {
       const unreadCount = notifications.filter(n => !n.isRead).length;
       setUnreadNotificationCount(unreadCount);
 
@@ -162,22 +156,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     });
 
     // Subscribe to unread count changes
-    const unsubscribeUnreadCount = NotificationService.subscribeToUnreadCount((count) => {
+    const unsubscribeUnreadCount = NotificationService.subscribeToUnreadCount((count: number) => {
       setUnreadNotificationCount(count);
     });
 
     // Load notifications for admin
     if (userRole === 'admin') {
-      loadAllNotifications();
+      loadAllAppNotifications();
       loadUsers(); // Load users for selection
     } else {
       // Load recent notifications for non-admin users
-      loadRecentNotifications();
+      loadRecentAppNotifications();
     }
 
     return () => {
       clearInterval(interval);
-      unsubscribeNotifications();
+      unsubscribeAppNotifications();
       unsubscribeUnreadCount();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -760,7 +754,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Load all notifications for admin
-  const loadAllNotifications = async () => {
+  const loadAllAppNotifications = async () => {
     try {
       const notifications = await NotificationService.getAllNotifications();
       setAllNotifications(notifications);
@@ -770,7 +764,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Load recent notifications for non-admin users
-  const loadRecentNotifications = async () => {
+  const loadRecentAppNotifications = async () => {
     try {
       const notifications = await NotificationService.getRecentNotifications(3);
       setRecentNotifications(notifications);
@@ -790,7 +784,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Handle create notification
-  const handleCreateNotification = async (e: React.FormEvent) => {
+  const handleCreateAppNotification = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setIsCreatingNotification(true);
@@ -851,7 +845,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setNotificationSendType('single');
 
       // Reload notifications
-      await loadAllNotifications();
+      await loadAllAppNotifications();
 
       alert('Tạo thông báo thành công!');
     } catch (error) {
@@ -863,11 +857,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   };
 
   // Handle delete notification
-  const handleDeleteNotification = async (notificationId: string) => {
+  const handleDeleteAppNotification = async (notificationId: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa thông báo này?')) {
       try {
         await NotificationService.deleteNotification(notificationId);
-        await loadAllNotifications();
+        await loadAllAppNotifications();
       } catch (error) {
         console.error('Error deleting notification:', error);
       }
@@ -1021,7 +1015,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 {new Date().toLocaleDateString('vi-VN')}
               </div>
 
-              {/* Notification Icon */}
+              {/* AppNotification Icon */}
               <div className="relative">
                 <button
                   onClick={() => setNotificationOpen(true)}
@@ -1110,13 +1104,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   {/* Admin: Form tạo thông báo mới */}
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium text-gray-800 mb-3">Tạo thông báo mới</h4>
-                    <form onSubmit={handleCreateNotification} className="space-y-4">
+                    <form onSubmit={handleCreateAppNotification} className="space-y-4">
                       {/* Send Type Selection */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Loại gửi thông báo</label>
                         <select
                           value={notificationSendType}
-                          onChange={(e) => setNotificationSendType(e.target.value as any)}
+                          onChange={(e) => setNotificationSendType(e.target.value as 'single' | 'multiple' | 'all' | 'role' | 'template')}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="single">Gửi cho 1 user</option>
@@ -1198,7 +1192,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </div>
                       )}
 
-                      {/* Basic Notification Fields */}
+                      {/* Basic AppNotification Fields */}
                       {notificationSendType !== 'template' && (
                         <>
                           <div>
@@ -1224,7 +1218,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         </>
                       )}
 
-                      {/* Notification Type */}
+                      {/* AppNotification Type */}
                       <div className="flex items-center space-x-3">
                         <select
                           value={newNotificationType}
@@ -1262,7 +1256,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                     <h4 className="font-medium text-gray-800">Tất cả thông báo</h4>
                     {allNotifications.length > 0 ? (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {allNotifications.map((notification) => (
+                        {allNotifications.map((notification: AppNotification) => (
                           <div key={notification._id} className="p-3 bg-white border border-gray-200 rounded-lg">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
@@ -1281,7 +1275,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                                   {notification.type}
                                 </span>
                                 <button
-                                  onClick={() => handleDeleteNotification(notification._id)}
+                                  onClick={() => handleDeleteAppNotification(notification._id)}
                                   className="p-1 hover:bg-red-100 rounded-full transition-colors"
                                   title="Xóa thông báo"
                                 >
@@ -1302,10 +1296,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               ) : (
                 /* User: Hiển thị thông báo gần đây */
                 <div className="space-y-3">
-                  {/* Recent Notifications */}
+                  {/* Recent AppNotifications */}
                   {recentNotifications.length > 0 ? (
                     <div className="space-y-2">
-                      {recentNotifications.map((notification) => (
+                      {recentNotifications.map((notification: AppNotification) => (
                         <div
                           key={notification._id}
                           className={`p-3 border rounded-lg transition-all duration-200 hover:shadow-md ${!notification.isRead
@@ -1446,7 +1440,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                   >
                     <div className="flex items-center gap-2">
                       <Bell className="h-4 w-4 sm:hidden" />
-                      <span className="hidden sm:inline">Push Notifications</span>
+                      <span className="hidden sm:inline">Push AppNotifications</span>
                     </div>
                   </button>
                 </nav>
@@ -1595,19 +1589,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 {adminSubTab === 'pushSettings' && (
                   <div className="space-y-6">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Cài đặt Push Notifications</h3>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Cài đặt Push AppNotifications</h3>
                       <PushNotificationSettings />
                     </div>
 
-                    {/* Push Notification Status */}
+                    {/* Push AppNotification Status */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Trạng thái Push Notifications</h3>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Trạng thái Push AppNotifications</h3>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <span className="text-gray-700 font-medium">Hỗ trợ trình duyệt</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushSupported
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
                             }`}>
                             {pushSupported ? 'Được hỗ trợ' : 'Không hỗ trợ'}
                           </span>
@@ -1616,8 +1610,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <span className="text-gray-700 font-medium">Khởi tạo</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushInitialized
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {pushInitialized ? 'Đã khởi tạo' : 'Đang khởi tạo...'}
                           </span>
@@ -1626,10 +1620,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <span className="text-gray-700 font-medium">Quyền thông báo</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushPermission === 'granted'
-                              ? 'bg-green-100 text-green-800'
-                              : pushPermission === 'denied'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : pushPermission === 'denied'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {pushPermission === 'granted' ? 'Đã cấp quyền' :
                               pushPermission === 'denied' ? 'Bị từ chối' : 'Chưa cấp quyền'}
@@ -1639,8 +1633,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <span className="text-gray-700 font-medium">Đăng ký Push</span>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${pushSubscribed
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
                             }`}>
                             {pushSubscribed ? 'Đã đăng ký' : 'Chưa đăng ký'}
                           </span>
@@ -2232,7 +2226,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </div>
       )}
 
-      {/* Notification Popup */}
+      {/* AppNotification Popup */}
       <NotificationPopup
         isOpen={notificationOpen}
         onClose={() => setNotificationOpen(false)}
