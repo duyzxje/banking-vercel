@@ -539,7 +539,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
 
         // Nếu không phải Live và không được phép sửa
         if (!isEditable) {
-            const hasShifts = dayShifts.morning || dayShifts.noon || dayShifts.afternoon || dayShifts.evening;
+            const hasShifts = dayShifts.morning || dayShifts.noon || dayShifts.afternoon || dayShifts.evening || dayShifts.off;
             if (!hasShifts) return <div className="h-10 flex items-center justify-center text-gray-400">-</div>;
 
             return (
@@ -548,6 +548,7 @@ const ShiftTable: React.FC<ShiftTableProps> = ({
                     {dayShifts.noon && <div className="bg-yellow-200 text-yellow-800 rounded-md py-1 px-2 text-center text-xs font-medium">Trưa</div>}
                     {dayShifts.afternoon && <div className="bg-green-200 text-green-800 rounded-md py-1 px-2 text-center text-xs font-medium">Chiều</div>}
                     {dayShifts.evening && <div className="bg-purple-200 text-purple-800 rounded-md py-1 px-2 text-center text-xs font-medium">Tối</div>}
+                    {dayShifts.off && <div className="bg-red-200 text-red-800 rounded-md py-1 px-2 text-center text-xs font-medium">Off</div>}
                 </div>
             );
         }
