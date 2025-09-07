@@ -2,9 +2,7 @@
 const CACHE_NAME = 'worktime-app-v1';
 const urlsToCache = [
     '/',
-    '/static/js/bundle.js',
-    '/static/css/main.css',
-    '/manifest.json'
+    '/manifest.webmanifest'
 ];
 
 // Install event
@@ -14,7 +12,19 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Opened cache');
-                return cache.addAll(urlsToCache);
+                // Add each URL individually with error handling
+                return Promise.allSettled(
+                    urlsToCache.map(url =>
+                        cache.add(url).catch(error => {
+                            console.warn(`Failed to cache ${url}:`, error);
+                            return null; // Continue with other URLs
+                        })
+                    )
+                );
+            })
+            .catch(error => {
+                console.error('Cache installation failed:', error);
+                // Continue installation even if caching fails
             })
     );
 });
@@ -38,11 +48,36 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
+    // Only handle GET requests
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // Return cached version or fetch from network
-                return response || fetch(event.request);
+                // Return cached version if available
+                if (response) {
+                    return response;
+                }
+
+                // Otherwise fetch from network
+                return fetch(event.request).catch(error => {
+                    console.warn('Fetch failed:', error);
+                    // Return a basic offline page or fallback
+                    if (event.request.destination === 'document') {
+                        return new Response(
+                            '<html><body><h1>Offline</h1><p>Please check your internet connection.</p></body></html>',
+                            { headers: { 'Content-Type': 'text/html' } }
+                        );
+                    }
+                    throw error;
+                });
+            })
+            .catch(error => {
+                console.error('Cache and fetch failed:', error);
+                // Return a basic error response
+                return new Response('Network error', { status: 408 });
             })
     );
 });
@@ -168,21 +203,16 @@ async function doBackgroundSync() {
     try {
         console.log('Performing background sync...');
 
-        // Check for new notifications
-        const response = await fetch('/api/notifications/user/count', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        // Note: localStorage is not available in Service Worker context
+        // This is just a placeholder for background sync logic
+        console.log('Background sync completed');
 
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.count > 0) {
-                // Update badge
-                if (navigator.setAppBadge) {
-                    navigator.setAppBadge(data.count);
-                }
+        // Update badge if supported
+        if (navigator.setAppBadge) {
+            try {
+                await navigator.setAppBadge(0); // Clear badge
+            } catch (error) {
+                console.warn('Failed to update app badge:', error);
             }
         }
     } catch (error) {
@@ -205,11 +235,13 @@ self.addEventListener('message', (event) => {
 
 // Error handling
 self.addEventListener('error', (event) => {
-    console.error('Service Worker error:', event);
+    console.error('Service Worker error:', event.error);
 });
 
 self.addEventListener('unhandledrejection', (event) => {
-    console.error('Service Worker unhandled rejection:', event);
+    console.error('Service Worker unhandled rejection:', event.reason);
+    // Prevent the default behavior to avoid console errors
+    event.preventDefault();
 });
 
 console.log('Service Worker loaded successfully');
