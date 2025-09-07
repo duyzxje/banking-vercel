@@ -226,6 +226,9 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
     };
 
     const handleExportSalary = async (userId: string, month: number, year: number) => {
+        // Confirm before exporting salary report
+        const isConfirmed = confirm(`Bạn có chắc chắn muốn xuất file Excel lương tháng ${month}/${year} cho nhân viên này?`);
+        if (!isConfirmed) return;
         try {
             const token = localStorage.getItem('token');
             if (!token) return;
@@ -429,7 +432,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     <span className="text-sm text-gray-900">{formatCurrency(record.hourlyRate)}</span>
                                                     <button
                                                         onClick={() => setEditingRate({ userId: getUserId(record.userId), rate: record.hourlyRate })}
-                                                        className="text-blue-600 hover:text-blue-900"
+                                                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </button>
@@ -447,21 +450,21 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                 <button
                                                     onClick={() => handleCalculateSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
                                                     disabled={calculateLoading}
-                                                    className="text-purple-600 hover:text-purple-900 disabled:text-gray-400"
+                                                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:text-gray-400 p-2 rounded-md transition-colors"
                                                     title="Tính lương"
                                                 >
                                                     <DollarSign className="h-4 w-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleViewHistory(getUserId(record.userId), getEmployeeName(record))}
-                                                    className="text-blue-600 hover:text-blue-900"
+                                                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
                                                     title="Xem lịch sử lương"
                                                 >
                                                     <Eye className="h-4 w-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
-                                                    className="text-green-600 hover:text-green-900"
+                                                    className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md transition-colors"
                                                     title="Xuất báo cáo Excel"
                                                 >
                                                     <Download className="h-4 w-4" />

@@ -355,14 +355,14 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                                 />
                                                 <button
                                                     onClick={() => handleUpdateSalary(employee.id, editingSalary.rate)}
-                                                    className="text-green-600 hover:text-green-900"
+                                                    className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md transition-colors"
                                                     title="Lưu"
                                                 >
                                                     <Save className="h-4 w-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => setEditingSalary(null)}
-                                                    className="text-gray-600 hover:text-gray-900"
+                                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-md transition-colors"
                                                     title="Hủy"
                                                 >
                                                     <X className="h-4 w-4" />
@@ -375,7 +375,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                                 </span>
                                                 <button
                                                     onClick={() => setEditingSalary({ userId: employee.id, rate: employee.hourlyRate || 0 })}
-                                                    className="text-blue-600 hover:text-blue-900"
+                                                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
                                                     title="Chỉnh sửa lương"
                                                 >
                                                     <Edit className="h-4 w-4" />
@@ -387,14 +387,14 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => handleViewEmployee(employee)}
-                                                className="text-blue-600 hover:text-blue-900 p-1"
+                                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
                                                 title="Xem thông tin"
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => employee.id && handleDeleteEmployee(employee.id)}
-                                                className="text-red-600 hover:text-red-900 p-1"
+                                                className="bg-red-50 hover:bg-red-100 text-red-700 p-2 rounded-md transition-colors"
                                                 title="Xóa nhân viên"
                                                 disabled={!employee.id}
                                             >
@@ -438,7 +438,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ isAdmin }) => {
                                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
                                     >
                                         <Eye className="h-3 w-3" />
-                                        Xem thông tin
+                                        Xem
                                     </button>
                                     <button
                                         onClick={() => employee.id && handleDeleteEmployee(employee.id)}

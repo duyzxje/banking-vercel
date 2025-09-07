@@ -327,7 +327,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => loadEmployeeAttendance(employee)}
-                                                className="text-blue-600 hover:text-blue-900 p-1"
+                                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
                                                 title="Xem chi tiết chấm công"
                                             >
                                                 <Eye className="h-4 w-4" />
@@ -335,7 +335,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <button
                                                 onClick={() => handleCalculateSalary(employee.userId, employee.name)}
                                                 disabled={calculatingSalary === employee.userId}
-                                                className="text-purple-600 hover:text-purple-900 disabled:text-gray-400 p-1"
+                                                className="bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:text-gray-400 p-2 rounded-md transition-colors"
                                                 title="Tính lương"
                                             >
                                                 <DollarSign className="h-4 w-4" />
@@ -356,7 +356,6 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                 <div className="flex items-center justify-between mb-3">
                                     <div>
                                         <h3 className="text-sm font-semibold text-gray-900">{employee.name}</h3>
-                                        <p className="text-xs text-gray-500">{employee.email}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
