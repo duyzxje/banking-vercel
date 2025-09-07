@@ -98,7 +98,7 @@ class PushNotificationManager {
             // Tạo subscription mới
             const subscription = await this.registration!.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey!) as any
+                applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey!) as BufferSource
             });
 
             this.subscription = subscription;

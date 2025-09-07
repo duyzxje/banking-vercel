@@ -22,9 +22,7 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
     const token = localStorage.getItem('token');
     const {
         isConnected: socketConnected,
-        notifications: socketNotifications,
-        joinRoom,
-        leaveRoom
+        notifications: socketNotifications
     } = useNotificationSocket(token);
 
     useEffect(() => {
@@ -119,18 +117,18 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
         }
     };
 
-    const getNotificationBgColor = (type: string) => {
-        switch (type) {
-            case 'success':
-                return 'bg-green-50 border-green-200';
-            case 'warning':
-                return 'bg-yellow-50 border-yellow-200';
-            case 'error':
-                return 'bg-red-50 border-red-200';
-            default:
-                return 'bg-blue-50 border-blue-200';
-        }
-    };
+    // const getNotificationBgColor = (type: string) => {
+    //     switch (type) {
+    //         case 'success':
+    //             return 'bg-green-50 border-green-200';
+    //         case 'warning':
+    //             return 'bg-yellow-50 border-yellow-200';
+    //         case 'error':
+    //             return 'bg-red-50 border-red-200';
+    //         default:
+    //             return 'bg-blue-50 border-blue-200';
+    //     }
+    // };
 
     const formatDateTime = (dateString: string) => {
         const date = new Date(dateString);

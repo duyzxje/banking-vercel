@@ -452,7 +452,7 @@ class NotificationServiceClass {
         }
     }
 
-    handleAllNotificationsRead(count: number): void {
+    handleAllNotificationsRead(_count: number): void {
         // Mark all notifications as read
         this.notifications.forEach(notification => {
             if (!notification.isRead) {
