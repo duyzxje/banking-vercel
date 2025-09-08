@@ -32,24 +32,30 @@ class PushNotificationManager {
     async getVapidPublicKey(): Promise<string> {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('/api/push/vapid-key', {
+            const apiBase = (process.env.NEXT_PUBLIC_API_URL as string) || 'https://worktime-dux3.onrender.com';
+            const response = await fetch(`${apiBase}/api/push/vapid-key`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
 
+            if (!response.ok) {
+                throw new Error(`VAPID endpoint ${response.status}`);
+            }
+
             const data = await response.json();
-            if (data.success) {
+            if (data && data.success && data.publicKey) {
                 this.vapidPublicKey = data.publicKey;
                 return data.publicKey;
-            } else {
-                throw new Error('Failed to get VAPID key');
             }
+
+            throw new Error('Invalid VAPID response');
         } catch (error) {
             console.error('Error getting VAPID key:', error);
-            // Fallback to demo key for development
-            this.vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa40HI...';
+            // Fallback: use build-time public key if provided, else a short demo key
+            const envKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string) || 'BEl62iUYgUivxIkv69yViEuiBIa40HI...';
+            this.vapidPublicKey = envKey;
             return this.vapidPublicKey;
         }
     }
@@ -145,7 +151,8 @@ class PushNotificationManager {
     async sendSubscriptionToServer(subscription: PushSubscription): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('/api/push/subscribe', {
+            const apiBase = (process.env.NEXT_PUBLIC_API_URL as string) || 'https://worktime-dux3.onrender.com';
+            const response = await fetch(`${apiBase}/api/push/subscribe`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -176,7 +183,8 @@ class PushNotificationManager {
     async removeSubscriptionFromServer(subscription: PushSubscription): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('/api/push/unsubscribe', {
+            const apiBase = (process.env.NEXT_PUBLIC_API_URL as string) || 'https://worktime-dux3.onrender.com';
+            const response = await fetch(`${apiBase}/api/push/unsubscribe`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -206,7 +214,8 @@ class PushNotificationManager {
     async testPushNotification(): Promise<{ success: boolean; message?: string }> {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('/api/push/test', {
+            const apiBase = (process.env.NEXT_PUBLIC_API_URL as string) || 'https://worktime-dux3.onrender.com';
+            const response = await fetch(`${apiBase}/api/push/test`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

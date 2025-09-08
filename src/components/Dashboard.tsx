@@ -71,7 +71,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   // Removed pagination states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'admin'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'attendance' | 'shifts' | 'push' | 'admin'>('home');
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'attendance' | 'salary' | 'shiftSettings' | 'pushSettings'>('overview');
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState<boolean>(false);
@@ -972,6 +972,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 </button>
               </li>
             )}
+            {userRole !== 'admin' && (
+              <li>
+                <button
+                  onClick={() => { setActiveTab('push'); setSidebarOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${activeTab === 'push' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <Bell className="h-5 w-5" />
+                  <span>Thông báo</span>
+                  {activeTab === 'push' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                </button>
+              </li>
+            )}
             <li>
               <button
                 onClick={handleLogout}
@@ -1005,7 +1017,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         ? 'Chấm công'
                         : activeTab === 'shifts'
                           ? 'Đăng ký ca'
-                          : 'Quản lý'
+                          : activeTab === 'push'
+                            ? 'Thông báo'
+                            : 'Quản lý'
                 }
               </h1>
             </div>
@@ -1338,6 +1352,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'push' && userRole !== 'admin' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Cài đặt thông báo</h3>
+              <PushNotificationSettings />
             </div>
           </div>
         )}
