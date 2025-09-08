@@ -6,7 +6,7 @@ import usePushNotifications from './usePushNotifications';
 // Detect if app is running as an installed PWA
 function isStandalonePWA(): boolean {
     // iOS Safari
-    const isIOSStandalone = typeof navigator !== 'undefined' && (navigator as any).standalone === true;
+    const isIOSStandalone = typeof navigator !== 'undefined' && Boolean((navigator as unknown as { standalone?: boolean }).standalone);
     // All modern browsers
     const isDisplayModeStandalone = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
     return Boolean(isIOSStandalone || isDisplayModeStandalone);
