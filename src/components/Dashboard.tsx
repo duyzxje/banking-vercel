@@ -1320,7 +1320,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                         <button
                           onClick={async () => {
                             try {
-                              if (pushPermission === 'default' && (window as any).Notification) {
+                              if (pushPermission === 'default' && typeof Notification !== 'undefined') {
                                 const granted = await Notification.requestPermission();
                                 if (granted !== 'granted') return;
                               }
