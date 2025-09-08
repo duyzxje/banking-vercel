@@ -150,8 +150,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const unreadCount = notifications.filter(n => !n.isRead).length;
       setUnreadNotificationCount(unreadCount);
 
-      // Set recent notifications (last 3 unread)
-      const recent = notifications.filter(n => !n.isRead).slice(0, 3);
+      // Set recent notifications: newest 3 regardless of read status
+      const recent = notifications
+        .slice()
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3);
       setRecentNotifications(recent);
     });
 
@@ -1311,8 +1314,27 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 /* User: Hiển thị thông báo gần đây */
                 <div className="space-y-3">
                   {/* Recent AppNotifications */}
-                  {recentNotifications.length > 0 ? (
+                  {(recentNotifications.length > 0 || pushPermission !== 'granted' || !pushSubscribed) ? (
                     <div className="space-y-2">
+                      {(pushPermission !== 'granted' || !pushSubscribed) && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (pushPermission === 'default' && (window as any).Notification) {
+                                const granted = await Notification.requestPermission();
+                                if (granted !== 'granted') return;
+                              }
+                              // Best-effort: subscribe via NotificationService
+                              try { await NotificationService.subscribeToPushNotifications(); } catch { }
+                            } catch (e) {
+                              console.warn('Enable push failed', e);
+                            }
+                          }}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Bật thông báo
+                        </button>
+                      )}
                       {recentNotifications.map((notification: AppNotification) => (
                         <div
                           key={notification._id}

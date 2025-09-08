@@ -151,8 +151,8 @@ self.addEventListener('notificationclick', (event) => {
         return;
     }
 
-    // Default action or 'view' action
-    const urlToOpen = event.notification.data?.url || '/';
+    // Always go to homepage on click
+    const urlToOpen = '/';
 
     event.waitUntil(
         clients.matchAll({

@@ -5,6 +5,7 @@ import { X, Bell, Trash2, AlertCircle, CheckCircle, Info, AlertTriangle, WifiOff
 import { AppNotification } from './NotificationTypes';
 import NotificationService from './NotificationService';
 import useNotificationSocket from './useNotificationSocket';
+import usePushNotifications from './usePushNotifications';
 
 interface NotificationPopupProps {
     isOpen: boolean;
@@ -24,6 +25,14 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
         isConnected: socketConnected,
         notifications: socketNotifications
     } = useNotificationSocket(token);
+
+    // Push notifications
+    const {
+        permission: pushPermission,
+        isSubscribed: pushSubscribed,
+        requestPermission: requestPushPermission,
+        subscribe: subscribePush
+    } = usePushNotifications();
 
     useEffect(() => {
         if (isOpen) {
@@ -83,6 +92,8 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
             if (!notification.isRead) {
                 await NotificationService.markAsRead(notification._id);
             }
+            // Ensure the clicked item remains visible in recent list on home by not filtering it out.
+            // No additional action needed; home now shows 3 latest including read.
         } catch (error) {
             console.error('Error marking notification as read:', error);
         }
@@ -209,6 +220,26 @@ export default function NotificationPopup({ isOpen, onClose, isAdmin = false }: 
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto">
+                    {(pushPermission !== 'granted' || !pushSubscribed) && (
+                        <div className="px-4 py-3 border-b border-gray-100 bg-blue-50">
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        if (pushPermission === 'default') {
+                                            const p = await requestPushPermission();
+                                            if (p !== 'granted') return;
+                                        }
+                                        await subscribePush();
+                                    } catch (e) {
+                                        console.warn('Enable push failed', e);
+                                    }
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+                            >
+                                Bật thông báo
+                            </button>
+                        </div>
+                    )}
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

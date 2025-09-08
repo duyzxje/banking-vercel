@@ -482,14 +482,18 @@ class NotificationServiceClass {
     // Get recent notifications (for non-admin users)
     async getRecentNotifications(limit: number = 3): Promise<AppNotification[]> {
         try {
-            const response = await fetch(`${this.baseUrl}/notifications/user/recent?limit=${limit}`, {
+            // Fetch all user notifications, then pick the latest N (including read)
+            const response = await fetch(`${this.baseUrl}/notifications/user`, {
                 headers: this.getAuthHeaders()
             });
 
             if (response.ok) {
                 const result: ApiResponse<AppNotification[]> = await response.json();
                 if (result.success && result.data) {
-                    return result.data;
+                    return result.data
+                        .slice()
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .slice(0, limit);
                 }
             }
         } catch (error) {
@@ -498,7 +502,8 @@ class NotificationServiceClass {
 
         // Fallback to local data
         return this.notifications
-            .filter(n => !n.isRead)
+            .slice()
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, limit);
     }
 
