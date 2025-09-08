@@ -1,7 +1,7 @@
 {
-    "name": "WorkTime Banking App",
-    "short_name": "WorkTime",
-    "description": "Ứng dụng quản lý thời gian làm việc và thông báo",
+    "name": "Giorlin",
+    "short_name": "Giorlin",
+    "description": "Ứng dụng quản lý thời gian làm việc, giao dịch ngân hàng và thông báo",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
