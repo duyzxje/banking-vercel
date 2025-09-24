@@ -76,23 +76,21 @@ export default function TransactionsView() {
                 cache: 'no-store'
             });
             if (!res.ok) throw new Error('Failed to fetch transactions');
-            const data = await res.json();
+            const data = await res.json() as { transactions?: Transaction[]; data?: Transaction[] | { transactions?: Transaction[] } };
             // tolerant mapping for various shapes
-            const maybe = (data as any);
+            const maybe = data;
             const list: Transaction[] =
                 (Array.isArray(maybe?.transactions) && maybe.transactions) ||
                 (Array.isArray(maybe?.data) && maybe.data) ||
                 (Array.isArray(maybe?.data?.transactions) && maybe.data.transactions) ||
                 [];
             // debug: console.log length
-            if (typeof window !== 'undefined') {
-                // eslint-disable-next-line no-console
-                console.log('transactions fetched:', Array.isArray(list) ? list.length : 0, data);
-            }
+            // optional debug in dev only
             setTransactions(list);
             setLastUpdateTime(new Date());
-        } catch (e: any) {
-            setError(e?.message || 'Lỗi tải giao dịch');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Lỗi tải giao dịch';
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -107,8 +105,8 @@ export default function TransactionsView() {
                 cache: 'no-store'
             });
             if (!res.ok) return;
-            const data = await res.json();
-            const maybe = (data as any);
+            const data = await res.json() as { transactions?: Transaction[]; data?: Transaction[] | { transactions?: Transaction[] } };
+            const maybe = data;
             const latest: Transaction[] =
                 (Array.isArray(maybe?.transactions) && maybe.transactions) ||
                 (Array.isArray(maybe?.data) && maybe.data) ||

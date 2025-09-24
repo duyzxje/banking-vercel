@@ -50,8 +50,9 @@ export default function StaffAttendanceView() {
             setRecords(list);
             const s = await AttendanceService.getAttendanceSummary(userId, month, year);
             setSummary(s as any);
-        } catch (e: any) {
-            setError(e?.message || 'Không tải được dữ liệu chấm công');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Không tải được dữ liệu chấm công';
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -64,8 +65,9 @@ export default function StaffAttendanceView() {
             await AttendanceService.checkIn(userId, pos.coords.longitude, pos.coords.latitude);
             setSuccess('Check In thành công');
             await loadHistory();
-        } catch (e: any) {
-            setError(e?.message || 'Check In thất bại');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Check In thất bại';
+            setError(msg);
         } finally {
             setLocationLoading(false);
         }
@@ -78,8 +80,9 @@ export default function StaffAttendanceView() {
             await AttendanceService.checkOut(userId, pos.coords.longitude, pos.coords.latitude);
             setSuccess('Check Out thành công');
             await loadHistory();
-        } catch (e: any) {
-            setError(e?.message || 'Check Out thất bại');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Check Out thất bại';
+            setError(msg);
         } finally {
             setLocationLoading(false);
         }

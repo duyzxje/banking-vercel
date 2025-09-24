@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_SORT_WEIGHT, Order, OrderStatus, StatusCountEntry } from './OrderTypes';
 import { OrderService } from './OrderService';
 
-type DateTimeRange = { start?: string; end?: string };
-
 const DEFAULT_LIMIT = 100000;
 
 export default function OrderManagement() {
@@ -13,7 +11,7 @@ export default function OrderManagement() {
     const [statusCounts, setStatusCounts] = useState<StatusCountEntry[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     // pagination removed on UI
-    const [limit, setLimit] = useState<number>(DEFAULT_LIMIT);
+    const limit = DEFAULT_LIMIT;
     const [search, setSearch] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
     // giữ giá trị theo định dạng input datetime-local: YYYY-MM-DDTHH:mm
@@ -21,7 +19,8 @@ export default function OrderManagement() {
     const [endInput, setEndInput] = useState<string>("");
     // Modal state
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [orderItems, setOrderItems] = useState<any[]>([]);
+    type OrderItem = { content?: string; product_name?: string; quantity?: number; unit_price?: number; price?: number };
+    const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [modalLoading, setModalLoading] = useState<boolean>(false);
 
     // chuyển thành định dạng SQL 'YYYY-MM-DD HH:mm:ss'
@@ -45,8 +44,10 @@ export default function OrderManagement() {
                 search,
                 status: statusFilter
             });
-            const list = Array.isArray((data as any)?.data) ? (data as any).data as Order[] : [];
-            const counts = Array.isArray((data as any)?.statusCounts) ? (data as any).statusCounts as StatusCountEntry[] : [];
+            interface ListOrdersResponse { data?: Order[]; statusCounts?: StatusCountEntry[] }
+            const resp = data as ListOrdersResponse;
+            const list = Array.isArray(resp?.data) ? resp.data : [];
+            const counts = Array.isArray(resp?.statusCounts) ? resp.statusCounts : [];
             setOrders(list);
             setStatusCounts(counts);
         } catch (err) {
@@ -54,7 +55,7 @@ export default function OrderManagement() {
         } finally {
             setLoading(false);
         }
-    }, [startInput, endInput, limit, search, statusFilter]);
+    }, [startInput, endInput, search, statusFilter]);
 
     useEffect(() => {
         fetchData();
@@ -104,7 +105,7 @@ export default function OrderManagement() {
         setModalLoading(true);
         try {
             const orderDetail = await OrderService.getOrder(order.id);
-            setOrderItems(orderDetail.items || []);
+            setOrderItems((orderDetail.items || []) as OrderItem[]);
         } catch (err) {
             console.error('Error loading order details:', err);
             setOrderItems([]);
