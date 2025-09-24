@@ -55,7 +55,7 @@ export default function OrderManagement() {
         } finally {
             setLoading(false);
         }
-    }, [startInput, endInput, search, statusFilter]);
+    }, [startInput, endInput, search, statusFilter, limit]);
 
     useEffect(() => {
         fetchData();

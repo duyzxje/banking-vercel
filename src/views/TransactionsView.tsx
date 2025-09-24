@@ -53,7 +53,7 @@ export default function TransactionsView() {
             const seconds = dateObj.getSeconds().toString().padStart(2, '0');
 
             return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-        } catch (error) {
+        } catch {
             return 'N/A';
         }
     };

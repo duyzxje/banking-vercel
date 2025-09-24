@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, RefreshCw, MapPin, Clock, BarChart } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, BarChart } from 'lucide-react';
 import AttendanceService from '@/components/AttendanceService';
 import { AttendanceRecord, AttendanceSummary } from '@/components/AttendanceTypes';
 import Popup from '@/components/Popup';
@@ -49,7 +49,7 @@ export default function StaffAttendanceView() {
             const list = await AttendanceService.getAttendanceHistory(userId, month, year);
             setRecords(list);
             const s = await AttendanceService.getAttendanceSummary(userId, month, year);
-            setSummary(s as any);
+            setSummary(s as AttendanceSummary);
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Không tải được dữ liệu chấm công';
             setError(msg);
