@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 export default function ShiftsView() {
     const [userId, setUserId] = useState<string>('');
     const [userRole, setUserRole] = useState<string>('');
+    const [userName, setUserName] = useState<string>('');
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -21,6 +22,7 @@ export default function ShiftsView() {
                     if (data?.success && data?.user) {
                         setUserId(data.user.id || '');
                         setUserRole(data.user.role || '');
+                        setUserName(data.user.name || '');
                     }
                 }
             } catch {
@@ -31,7 +33,7 @@ export default function ShiftsView() {
     }, []);
 
     return (
-        <ShiftTable userId={userId} isAdmin={userRole === 'admin'} />
+        <ShiftTable userId={userId} userName={userName} isAdmin={userRole === 'admin'} />
     );
 }
 
