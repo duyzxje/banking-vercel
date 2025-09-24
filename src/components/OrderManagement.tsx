@@ -360,7 +360,7 @@ export default function OrderManagement() {
                                                                 <td className="px-4 py-3 text-sm text-gray-900">{item.quantity || 0}</td>
                                                                 <td className="px-4 py-3 text-sm text-gray-900">{item.unit_price ? item.unit_price.toLocaleString() : (item.price ? item.price.toLocaleString() : 0)} VNĐ</td>
                                                                 <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                                                                    {item.quantity && (item.unit_price || item.price) ? (item.quantity * (item.unit_price || item.price)).toLocaleString() : 0} VNĐ
+                                                                    {(((item.quantity ?? 0) * (item.unit_price ?? item.price ?? 0)) || 0).toLocaleString()} VNĐ
                                                                 </td>
                                                             </tr>
                                                         ))}
