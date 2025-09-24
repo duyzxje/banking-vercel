@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import AutoPushInitializer from "@/components/AutoPushInitializer";
+import AuthGate from "@/components/AuthGate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,12 +19,11 @@ export const metadata: Metadata = {
   title: "Giorlin",
   description: "Ứng dụng quản lý thời gian làm việc và giao dịch ngân hàng",
   manifest: "/manifest.webmanifest",
-  themeColor: "#2563eb",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icon.png",
     apple: "/apple-touch-icon.png",
   },
+  themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -36,6 +36,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+} satisfies NonNullable<Metadata["viewport"]>;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,8 +54,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ServiceWorkerRegistration />
-        <AutoPushInitializer />
-        {children}
+        <AuthGate>
+          <AutoPushInitializer />
+          {children}
+        </AuthGate>
       </body>
     </html>
   );

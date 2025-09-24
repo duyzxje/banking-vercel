@@ -18,7 +18,7 @@ class NotificationServiceClass {
 
     // Get auth headers
     private getAuthHeaders(): HeadersInit {
-        const token = localStorage.getItem('token');
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : undefined;
         return {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -94,7 +94,9 @@ class NotificationServiceClass {
     // Save notifications to localStorage
     private saveNotifications(): void {
         try {
-            localStorage.setItem('notifications', JSON.stringify(this.notifications));
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('notifications', JSON.stringify(this.notifications));
+            }
         } catch (error) {
             console.error('Error saving notifications:', error);
         }

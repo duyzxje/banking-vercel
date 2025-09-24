@@ -83,6 +83,7 @@ export default function Login({ onLogin }: LoginProps) {
                   name="username"
                   type="text"
                   required
+                  autoComplete="username"
                   className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Nhập tên đăng nhập"
                   value={formData.username}
@@ -104,6 +105,7 @@ export default function Login({ onLogin }: LoginProps) {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
                   className="w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Nhập mật khẩu"
                   value={formData.password}

@@ -1,5 +1,5 @@
 // Service Worker for Push Notifications
-const CACHE_NAME = 'worktime-app-v1';
+const CACHE_NAME = 'worktime-app-v2';
 const urlsToCache = [
     '/',
     '/manifest.webmanifest'
@@ -27,6 +27,8 @@ self.addEventListener('install', (event) => {
                 // Continue installation even if caching fails
             })
     );
+    // Activate this SW immediately
+    self.skipWaiting();
 });
 
 // Activate event
@@ -42,7 +44,7 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
@@ -51,6 +53,12 @@ self.addEventListener('fetch', (event) => {
     // Only handle GET requests
     if (event.request.method !== 'GET') {
         return;
+    }
+
+    const reqUrl = new URL(event.request.url);
+    // Never cache Next.js build assets or HMR/runtime chunks
+    if (reqUrl.pathname.startsWith('/_next/')) {
+        return; // Let the network handle it directly
     }
 
     event.respondWith(
@@ -62,7 +70,18 @@ self.addEventListener('fetch', (event) => {
                 }
 
                 // Otherwise fetch from network
-                return fetch(event.request).catch(error => {
+                return fetch(event.request).then((networkResponse) => {
+                    // Optionally cache non-Next, same-origin, basic responses
+                    try {
+                        const isSameOrigin = reqUrl.origin === self.location.origin;
+                        const isBasic = networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic';
+                        if (isSameOrigin && isBasic && !reqUrl.pathname.startsWith('/_next/')) {
+                            const responseToCache = networkResponse.clone();
+                            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache)).catch(() => { });
+                        }
+                    } catch { }
+                    return networkResponse;
+                }).catch(error => {
                     console.warn('Fetch failed:', error);
                     // Return a basic offline page or fallback
                     if (event.request.destination === 'document') {

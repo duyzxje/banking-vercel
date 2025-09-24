@@ -8,6 +8,7 @@ export interface CheckInOutData {
 
 export interface AttendanceRecord {
     _id: string;
+    id?: string; // compatibility: some code paths reference 'id'
     user: string;
     checkInTime: string;
     checkInTimeFormatted: string;
