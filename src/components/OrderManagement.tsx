@@ -15,8 +15,24 @@ export default function OrderManagement() {
     const [search, setSearch] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
     // giữ giá trị theo định dạng input datetime-local: YYYY-MM-DDTHH:mm
-    const [startInput, setStartInput] = useState<string>("");
-    const [endInput, setEndInput] = useState<string>("");
+    const toInputLocal = (d: Date): string => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    };
+
+    const now = new Date();
+    const nowTruncated = new Date(now);
+    nowTruncated.setSeconds(0, 0);
+    const yesterdayStart = new Date(now);
+    yesterdayStart.setDate(now.getDate() - 1);
+    yesterdayStart.setHours(0, 0, 0, 0);
+
+    const [startInput, setStartInput] = useState<string>(() => toInputLocal(yesterdayStart));
+    const [endInput, setEndInput] = useState<string>(() => toInputLocal(nowTruncated));
     // Modal state
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     type OrderItem = { content?: string; product_name?: string; quantity?: number; unit_price?: number; price?: number };
@@ -133,6 +149,7 @@ export default function OrderManagement() {
                         <label className="text-sm font-medium text-gray-700 mb-1">Bắt đầu</label>
                         <input
                             type="datetime-local"
+                            lang="en-GB"
                             className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={startInput}
                             onChange={e => setStartInput(e.target.value)}
@@ -142,6 +159,7 @@ export default function OrderManagement() {
                         <label className="text-sm font-medium text-gray-700 mb-1">Kết thúc</label>
                         <input
                             type="datetime-local"
+                            lang="en-GB"
                             className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={endInput}
                             onChange={e => setEndInput(e.target.value)}
