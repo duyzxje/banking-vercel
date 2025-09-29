@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const API_URL = 'https://worktime-dux3.onrender.com/api';
 
@@ -10,7 +10,7 @@ function parseDateTimeParts(dateStr?: string, timeStr?: string): string | undefi
     return isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { attendanceId: string } }) {
+export async function PUT(request: Request, { params }: any) {
     try {
         const authHeader = request.headers.get('authorization');
         if (!authHeader) {
