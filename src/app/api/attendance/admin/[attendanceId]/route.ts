@@ -10,14 +10,16 @@ function parseDateTimeParts(dateStr?: string, timeStr?: string): string | undefi
     return isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
-export async function PUT(request: Request, context: { params: { attendanceId: string } }) {
+export async function PUT(request: Request) {
     try {
         const authHeader = request.headers.get('authorization');
         if (!authHeader) {
             return NextResponse.json({ success: false, message: 'Token không được cung cấp' }, { status: 401 });
         }
 
-        const attendanceId = context.params.attendanceId;
+        const pathname = new URL(request.url).pathname;
+        const segments = pathname.split('/').filter(Boolean);
+        const attendanceId = segments[segments.length - 1];
         const body = await request.json();
 
         const { checkInDate, checkInTimePart, checkOutDate, checkOutTimePart, notes, officeId } = body || {};
