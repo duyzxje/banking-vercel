@@ -127,7 +127,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             if (record.officeId) updateData.officeId = record.officeId;
 
             const response = await fetch(
-                `/api/attendance/admin/${record.id}`,
+                `https://worktime-dux3.onrender.com/api/attendance/admin/${record.id}`,
                 {
                     method: 'PUT',
                     headers: {
