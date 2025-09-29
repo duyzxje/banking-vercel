@@ -31,7 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
     return (
         <div className="min-h-screen flex">
             <aside className="w-56 shrink-0 border-r bg-white p-3">
-                <div className="font-semibold mb-3">Giorlin</div>
+                <div className="font-semibold mb-3">Giorlin App</div>
                 <nav className="space-y-1 text-sm">
                     <Link className={linkClass('/')} href="/">Trang chủ</Link>
                     <Link className={linkClass('/orders')} href="/orders">Quản lí đơn hàng</Link>

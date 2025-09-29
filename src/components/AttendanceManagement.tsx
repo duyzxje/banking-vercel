@@ -127,7 +127,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
             if (record.officeId) updateData.officeId = record.officeId;
 
             const response = await fetch(
-                `https://worktime-dux3.onrender.com/api/attendance/admin/${record.id}`,
+                `/api/attendance/admin/${record.id}`,
                 {
                     method: 'PUT',
                     headers: {
@@ -459,7 +459,26 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                         {attendanceRecords.map((record) => (
                                             <tr key={record.id} className="hover:bg-gray-50">
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {new Date(record.checkInTime).toLocaleDateString('vi-VN')}
+                                                    {editingRecord?.id === record.id ? (
+                                                        <input
+                                                            type="date"
+                                                            value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toISOString().slice(0, 10) : ''}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value; // YYYY-MM-DD
+                                                                const currentDate = new Date(editingRecord.checkInTime);
+                                                                const [y, m, d] = value.split('-').map(v => parseInt(v));
+                                                                currentDate.setUTCFullYear(y);
+                                                                currentDate.setUTCMonth(m - 1);
+                                                                currentDate.setUTCDate(d);
+                                                                setEditingRecord(prev =>
+                                                                    prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
+                                                                );
+                                                            }}
+                                                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    ) : (
+                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN')
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
@@ -482,19 +501,37 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {editingRecord?.id === record.id ? (
-                                                        <input
-                                                            type="time"
-                                                            value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
-                                                            onChange={(e) => {
-                                                                const currentDate = new Date(editingRecord.checkOutTime || new Date());
-                                                                const [hours, minutes] = e.target.value.split(':');
-                                                                currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
-                                                                setEditingRecord(prev =>
-                                                                    prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
-                                                                );
-                                                            }}
-                                                            className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                                        />
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="date"
+                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toISOString().slice(0, 10) : (editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toISOString().slice(0, 10) : '')}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value; // YYYY-MM-DD
+                                                                    const base = new Date(editingRecord.checkOutTime || editingRecord.checkInTime || new Date().toISOString());
+                                                                    const [y, m, d] = value.split('-').map(v => parseInt(v));
+                                                                    base.setUTCFullYear(y);
+                                                                    base.setUTCMonth(m - 1);
+                                                                    base.setUTCDate(d);
+                                                                    setEditingRecord(prev =>
+                                                                        prev ? { ...prev, checkOutTime: base.toISOString() } : null
+                                                                    );
+                                                                }}
+                                                                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                            />
+                                                            <input
+                                                                type="time"
+                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
+                                                                onChange={(e) => {
+                                                                    const currentDate = new Date(editingRecord.checkOutTime || new Date());
+                                                                    const [hours, minutes] = e.target.value.split(':');
+                                                                    currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
+                                                                    setEditingRecord(prev =>
+                                                                        prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
+                                                                    );
+                                                                }}
+                                                                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                            />
+                                                        </div>
                                                     ) : (
                                                         record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')
                                                     )}
@@ -565,7 +602,26 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-gray-400" />
                                                 <span className="text-sm font-medium text-gray-900">
-                                                    {new Date(record.checkInTime).toLocaleDateString('vi-VN')}
+                                                    {editingRecord?.id === record.id ? (
+                                                        <input
+                                                            type="date"
+                                                            value={editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toISOString().slice(0, 10) : ''}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value; // YYYY-MM-DD
+                                                                const currentDate = new Date(editingRecord.checkInTime);
+                                                                const [y, m, d] = value.split('-').map(v => parseInt(v));
+                                                                currentDate.setUTCFullYear(y);
+                                                                currentDate.setUTCMonth(m - 1);
+                                                                currentDate.setUTCDate(d);
+                                                                setEditingRecord(prev =>
+                                                                    prev ? { ...prev, checkInTime: currentDate.toISOString() } : null
+                                                                );
+                                                            }}
+                                                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    ) : (
+                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN')
+                                                    )}
                                                 </span>
                                             </div>
                                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
@@ -593,19 +649,37 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                                 className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                             <span>-</span>
-                                                            <input
-                                                                type="time"
-                                                                value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
-                                                                onChange={(e) => {
-                                                                    const currentDate = new Date(editingRecord.checkOutTime || new Date());
-                                                                    const [hours, minutes] = e.target.value.split(':');
-                                                                    currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
-                                                                    setEditingRecord(prev =>
-                                                                        prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
-                                                                    );
-                                                                }}
-                                                                className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                                            />
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="date"
+                                                                    value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toISOString().slice(0, 10) : (editingRecord.checkInTime ? new Date(editingRecord.checkInTime).toISOString().slice(0, 10) : '')}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        const base = new Date(editingRecord.checkOutTime || editingRecord.checkInTime || new Date().toISOString());
+                                                                        const [y, m, d] = value.split('-').map(v => parseInt(v));
+                                                                        base.setUTCFullYear(y);
+                                                                        base.setUTCMonth(m - 1);
+                                                                        base.setUTCDate(d);
+                                                                        setEditingRecord(prev =>
+                                                                            prev ? { ...prev, checkOutTime: base.toISOString() } : null
+                                                                        );
+                                                                    }}
+                                                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                                />
+                                                                <input
+                                                                    type="time"
+                                                                    value={editingRecord.checkOutTime ? new Date(editingRecord.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : ''}
+                                                                    onChange={(e) => {
+                                                                        const currentDate = new Date(editingRecord.checkOutTime || new Date());
+                                                                        const [hours, minutes] = e.target.value.split(':');
+                                                                        currentDate.setUTCHours(parseInt(hours), parseInt(minutes));
+                                                                        setEditingRecord(prev =>
+                                                                            prev ? { ...prev, checkOutTime: currentDate.toISOString() } : null
+                                                                        );
+                                                                    }}
+                                                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         `${record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')} - ${record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')}`
