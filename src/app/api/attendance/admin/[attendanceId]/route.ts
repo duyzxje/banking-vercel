@@ -20,7 +20,8 @@ export async function PUT(request: NextRequest, { params }: { params: { attendan
         const attendanceId = params.attendanceId;
         const body = await request.json();
 
-        let { checkInTime, checkOutTime, checkInDate, checkInTimePart, checkOutDate, checkOutTimePart, notes, officeId } = body || {};
+        const { checkInDate, checkInTimePart, checkOutDate, checkOutTimePart, notes, officeId } = body || {};
+        let { checkInTime, checkOutTime } = body || {};
 
         // Normalize inputs: if parts provided, build ISO
         if (!checkInTime) {
