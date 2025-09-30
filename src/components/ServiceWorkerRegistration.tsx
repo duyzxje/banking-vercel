@@ -21,6 +21,14 @@ const ServiceWorkerRegistration: React.FC = () => {
                 .then((registration) => {
                     console.log('Service Worker registered successfully:', registration);
 
+                    // Auto-reload when a new controller takes over (new SW activated)
+                    let hasRelaodedOnControllerChange = false;
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (hasRelaodedOnControllerChange) return;
+                        hasRelaodedOnControllerChange = true;
+                        window.location.reload();
+                    });
+
                     // Check for updates
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;

@@ -4,6 +4,7 @@ import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import AutoPushInitializer from "@/components/AutoPushInitializer";
 import AuthGate from "@/components/AuthGate";
+import RouteLoadingBar from "@/components/RouteLoadingBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <RouteLoadingBar />
         <ServiceWorkerRegistration />
         <AuthGate>
           <AutoPushInitializer />

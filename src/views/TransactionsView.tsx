@@ -71,7 +71,7 @@ export default function TransactionsView() {
         try {
             setLoading(true);
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : undefined;
-            const res = await fetch('/api/transactions?limit=0', {
+            const res = await fetch('/api/transactions?limit=500', {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
                 cache: 'no-store'
             });
