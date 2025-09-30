@@ -374,7 +374,7 @@ export default function OrderManagement() {
                                         {/* Right actions: status change */}
                                         <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                                             <select
-                                                className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                                                 value={o.status}
                                                 onChange={e => handleChangeStatus(o.id, e.target.value as OrderStatus)}
                                             >
