@@ -69,7 +69,7 @@ export const OrderService = {
 
         const { data, error } = await query;
         if (error) {
-            console.error('Supabase listOrders error:', { message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase listOrders error:', { message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to list orders: ${error.message}`);
         }
         const orders: Order[] = (data as OrderRow[]).map(mapOrder);
@@ -83,7 +83,7 @@ export const OrderService = {
                 .select('*', { count: 'exact', head: true })
                 .eq('status', st);
             if (errCount) {
-                console.error('Supabase status count error:', { status: st, message: errCount.message, details: errCount.details, hint: errCount.hint, code: (errCount as any).code });
+                console.error('Supabase status count error:', { status: st, message: errCount.message, details: errCount.details, hint: errCount.hint });
                 throw new Error(`Failed to count status ${st}: ${errCount.message}`);
             }
             statusCounts.push({ status: st, count: count ?? 0 });
@@ -95,12 +95,12 @@ export const OrderService = {
     async getOrder(orderId: number): Promise<{ order: Order; items: OrderItem[] }> {
         const { data: orderRow, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
         if (error) {
-            console.error('Supabase getOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase getOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to get order: ${error.message}`);
         }
         const { data: itemsRows, error: itemsErr } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
         if (itemsErr) {
-            console.error('Supabase getOrderItems error:', { orderId, message: itemsErr.message, details: itemsErr.details, hint: itemsErr.hint, code: (itemsErr as any).code });
+            console.error('Supabase getOrderItems error:', { orderId, message: itemsErr.message, details: itemsErr.details, hint: itemsErr.hint });
             throw new Error(`Failed to get order items: ${itemsErr.message}`);
         }
         return { order: mapOrder(orderRow as OrderRow), items: (itemsRows as OrderItemRow[]).map(mapItem) };
@@ -115,7 +115,7 @@ export const OrderService = {
     async updateStatus(orderId: number, status: OrderStatus): Promise<{ success: boolean; orderId: number; status: OrderStatus } & Record<string, unknown>> {
         const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
         if (error) {
-            console.error('Supabase updateStatus error:', { orderId, status, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase updateStatus error:', { orderId, status, message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to update status: ${error.message}`);
         }
         return { success: true, orderId, status };
@@ -129,7 +129,7 @@ export const OrderService = {
             .select('*')
             .single();
         if (error) {
-            console.error('Supabase createFromComments error:', { payload, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase createFromComments error:', { payload, message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to create order: ${error.message}`);
         }
         return { success: true, order_id: (data as OrderRow).id, total: 0, items: [] };
@@ -138,7 +138,7 @@ export const OrderService = {
     async deleteOrder(orderId: number): Promise<{ success: boolean } & Record<string, unknown>> {
         const { error } = await supabase.from('orders').delete().eq('id', orderId);
         if (error) {
-            console.error('Supabase deleteOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase deleteOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to delete order: ${error.message}`);
         }
         return { success: true };
@@ -147,7 +147,7 @@ export const OrderService = {
     async deleteMultiple(orderIds: number[]): Promise<DeleteMultipleResponseItem[]> {
         const { error } = await supabase.from('orders').delete().in('id', orderIds);
         if (error) {
-            console.error('Supabase deleteMultiple error:', { orderIds, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            console.error('Supabase deleteMultiple error:', { orderIds, message: error.message, details: error.details, hint: error.hint });
             throw new Error(`Failed to delete multiple: ${error.message}`);
         }
         return orderIds.map(id => ({ orderId: id, success: true }));
