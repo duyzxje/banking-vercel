@@ -1,78 +1,156 @@
 import { CreateFromCommentsPayload, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderItem, OrderStatus } from './OrderTypes';
+import { createClient } from '@supabase/supabase-js';
 
-const API_BASE = 'http://192.168.1.50:3001';
+const SUPABASE_URL = 'https://ngjdcukquavgtegvfjbd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5namRjdWtxdWF2Z3RlZ3ZmamJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNjU3NjAsImV4cCI6MjA3NDc0MTc2MH0.FedzkHLD-zgl_xG1BSyfuTI2U-szNKmOlZRto0ikoDs';
 
-function buildQuery(params: Record<string, string | number | undefined>) {
-    const qs = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        qs.set(key, String(value));
-    });
-    return qs.toString();
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Helpers to map DB rows to app Order/OrderItem types
+type OrderRow = {
+    id: number;
+    customer_username: string;
+    total_amount: number;
+    status: OrderStatus;
+    live_date?: string | null;
+    created_at?: string | null;
+};
+
+type OrderItemRow = {
+    id: number;
+    order_id: number;
+    product_name?: string | null;
+    content?: string | null;
+    quantity: number;
+    unit_price?: number | null;
+    price?: number | null;
+    created_at?: string | null;
+};
+
+function mapOrder(row: OrderRow): Order {
+    return {
+        id: row.id,
+        customer_username: row.customer_username,
+        total_amount: row.total_amount,
+        status: row.status,
+        live_date: row.live_date ?? undefined,
+        created_at: row.created_at ?? undefined
+    };
+}
+
+function mapItem(row: OrderItemRow): OrderItem {
+    return {
+        id: row.id,
+        order_id: row.order_id,
+        product_name: row.product_name ?? undefined,
+        content: row.content ?? undefined,
+        quantity: row.quantity,
+        unit_price: row.unit_price ?? undefined,
+        price: row.price ?? undefined,
+        created_at: row.created_at ?? undefined
+    };
 }
 
 export const OrderService = {
     async listOrders(options: { start?: string; end?: string; page?: number; limit?: number; search?: string; status?: string; }): Promise<ListOrdersResponse> {
-        const query = buildQuery({
-            start: options.start,
-            end: options.end,
-            page: 1,
-            // large limit to effectively disable pagination on UI
-            limit: options.limit ?? 100000,
-            search: options.search ?? '',
-            status: options.status ?? ''
-        });
-        const res = await fetch(`${API_BASE}/api/orders?${query}`);
-        if (!res.ok) throw new Error('Failed to list orders');
-        return res.json();
+        const limit = options.limit ?? 100000;
+        let query = supabase.from('orders').select('*', { count: 'exact' });
+
+        if (options.start) query = query.gte('created_at', options.start);
+        if (options.end) query = query.lte('created_at', options.end);
+        if (options.search && options.search.trim()) {
+            const s = options.search.trim();
+            query = query.ilike('customer_username', `%${s}%`);
+        }
+        if (options.status && options.status.trim()) {
+            query = query.eq('status', options.status);
+        }
+        query = query.order('created_at', { ascending: false }).limit(limit);
+
+        const { data, error } = await query;
+        if (error) {
+            console.error('Supabase listOrders error:', { message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to list orders: ${error.message}`);
+        }
+        const orders: Order[] = (data as OrderRow[]).map(mapOrder);
+
+        // Build status counts
+        const statuses: OrderStatus[] = ['gap', 'di_don', 'chua_rep', 'giu_don', 'hoan_thanh'];
+        const statusCounts: { status: OrderStatus; count: number }[] = [];
+        for (const st of statuses) {
+            const { count, error: errCount } = await supabase
+                .from('orders')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', st);
+            if (errCount) {
+                console.error('Supabase status count error:', { status: st, message: errCount.message, details: errCount.details, hint: errCount.hint, code: (errCount as any).code });
+                throw new Error(`Failed to count status ${st}: ${errCount.message}`);
+            }
+            statusCounts.push({ status: st, count: count ?? 0 });
+        }
+
+        return { data: orders, statusCounts };
     },
 
     async getOrder(orderId: number): Promise<{ order: Order; items: OrderItem[] }> {
-        const res = await fetch(`${API_BASE}/api/orders/${orderId}`);
-        if (!res.ok) throw new Error('Failed to get order detail');
-        return res.json();
+        const { data: orderRow, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
+        if (error) {
+            console.error('Supabase getOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to get order: ${error.message}`);
+        }
+        const { data: itemsRows, error: itemsErr } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
+        if (itemsErr) {
+            console.error('Supabase getOrderItems error:', { orderId, message: itemsErr.message, details: itemsErr.details, hint: itemsErr.hint, code: (itemsErr as any).code });
+            throw new Error(`Failed to get order items: ${itemsErr.message}`);
+        }
+        return { order: mapOrder(orderRow as OrderRow), items: (itemsRows as OrderItemRow[]).map(mapItem) };
     },
 
     async getOrderItems(orderId: number): Promise<{ data: OrderItem[] }> {
-        const res = await fetch(`${API_BASE}/api/orders/${orderId}/items`);
-        if (!res.ok) throw new Error('Failed to get items');
-        return res.json();
+        const { data, error } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
+        if (error) throw error;
+        return { data: (data as OrderItemRow[]).map(mapItem) };
     },
 
     async updateStatus(orderId: number, status: OrderStatus): Promise<{ success: boolean; orderId: number; status: OrderStatus } & Record<string, unknown>> {
-        const res = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-        });
-        if (!res.ok) throw new Error('Failed to update order status');
-        return res.json();
+        const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+        if (error) {
+            console.error('Supabase updateStatus error:', { orderId, status, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to update status: ${error.message}`);
+        }
+        return { success: true, orderId, status };
     },
 
     async createFromComments(payload: CreateFromCommentsPayload): Promise<{ success: boolean; order_id: number; total: number; items: OrderItem[] }> {
-        const res = await fetch(`${API_BASE}/api/orders/create-from-comments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('Failed to create order');
-        return res.json();
+        // Minimal example: create empty order with username and live_date
+        const { data, error } = await supabase
+            .from('orders')
+            .insert({ customer_username: payload.username, live_date: payload.liveDate, total_amount: 0, status: 'chua_rep' })
+            .select('*')
+            .single();
+        if (error) {
+            console.error('Supabase createFromComments error:', { payload, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to create order: ${error.message}`);
+        }
+        return { success: true, order_id: (data as OrderRow).id, total: 0, items: [] };
     },
 
     async deleteOrder(orderId: number): Promise<{ success: boolean } & Record<string, unknown>> {
-        const res = await fetch(`${API_BASE}/api/orders/${orderId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to delete order');
-        return res.json();
+        const { error } = await supabase.from('orders').delete().eq('id', orderId);
+        if (error) {
+            console.error('Supabase deleteOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to delete order: ${error.message}`);
+        }
+        return { success: true };
     },
 
     async deleteMultiple(orderIds: number[]): Promise<DeleteMultipleResponseItem[]> {
-        const res = await fetch(`${API_BASE}/api/orders/delete-multiple`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderIds })
-        });
-        if (!res.ok) throw new Error('Failed to delete multiple orders');
-        return res.json();
+        const { error } = await supabase.from('orders').delete().in('id', orderIds);
+        if (error) {
+            console.error('Supabase deleteMultiple error:', { orderIds, message: error.message, details: error.details, hint: error.hint, code: (error as any).code });
+            throw new Error(`Failed to delete multiple: ${error.message}`);
+        }
+        return orderIds.map(id => ({ orderId: id, success: true }));
     }
 };
 

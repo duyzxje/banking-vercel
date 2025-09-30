@@ -56,6 +56,10 @@ self.addEventListener('fetch', (event) => {
     }
 
     const reqUrl = new URL(event.request.url);
+    // Ignore cross-origin requests (e.g., Supabase) to avoid interfering with CORS/network
+    if (reqUrl.origin !== self.location.origin) {
+        return; // Let the browser handle it directly
+    }
     // Never cache Next.js build assets or HMR/runtime chunks
     if (reqUrl.pathname.startsWith('/_next/')) {
         return; // Let the network handle it directly
