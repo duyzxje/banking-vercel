@@ -1,4 +1,4 @@
-export type OrderStatus = 'chua_rep' | 'giu_don' | 'di_don' | 'gap' | 'hoan_thanh';
+export type OrderStatus = 'chua_rep' | 'giu_don' | 'di_don' | 'gap' | 'hoan_thanh' | 'warning';
 
 export interface OrderItem {
     id: number;
@@ -50,7 +50,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
     giu_don: 'Giữ đơn',
     di_don: 'Đi đơn',
     gap: 'Gấp',
-    hoan_thanh: 'Hoàn thành'
+    hoan_thanh: 'Hoàn thành',
+    warning: 'Cảnh báo'
 };
 
 export const ORDER_STATUS_SORT_WEIGHT: Record<OrderStatus, number> = {
@@ -58,7 +59,8 @@ export const ORDER_STATUS_SORT_WEIGHT: Record<OrderStatus, number> = {
     di_don: 2,
     chua_rep: 3,
     giu_don: 4,
-    hoan_thanh: 5
+    warning: 5,
+    hoan_thanh: 6
 };
 
 

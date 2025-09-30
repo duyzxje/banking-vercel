@@ -73,7 +73,7 @@ export const OrderService = {
         const orders: Order[] = (data as OrderRow[]).map(mapOrder);
 
         // Build status counts
-        const statuses: OrderStatus[] = ['gap', 'di_don', 'chua_rep', 'giu_don', 'hoan_thanh'];
+        const statuses: OrderStatus[] = ['gap', 'di_don', 'chua_rep', 'giu_don', 'warning', 'hoan_thanh'];
         const statusCounts: { status: OrderStatus; count: number }[] = [];
         for (const st of statuses) {
             const { count, error: errCount } = await supabase

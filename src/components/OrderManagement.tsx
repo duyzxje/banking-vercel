@@ -99,6 +99,7 @@ export default function OrderManagement() {
             case 'di_don': return 'bg-yellow-50 border border-yellow-200';
             case 'chua_rep': return 'bg-blue-50 border border-blue-200';
             case 'giu_don': return 'bg-purple-50 border border-purple-200';
+            case 'warning': return 'bg-orange-50 border border-orange-200';
             case 'hoan_thanh': return 'bg-emerald-50 border border-emerald-200';
             default: return '';
         }
@@ -203,7 +204,7 @@ export default function OrderManagement() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="font-semibold text-lg text-gray-800 mb-4">Thống kê trạng thái</h3>
                 <div className="flex flex-wrap gap-3">
-                    {(['gap', 'di_don', 'chua_rep', 'giu_don', 'hoan_thanh'] as OrderStatus[]).map(st => {
+                    {(['gap', 'di_don', 'chua_rep', 'giu_don', 'warning', 'hoan_thanh'] as OrderStatus[]).map(st => {
                         const count = statusCounts.find(s => s.status === st)?.count ?? 0;
                         return (
                             <button
@@ -214,6 +215,7 @@ export default function OrderManagement() {
                                     (st === 'di_don' ? (statusFilter === 'di_don' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100') : '') +
                                     (st === 'chua_rep' ? (statusFilter === 'chua_rep' ? 'bg-blue-600 text-white border-blue-600' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100') : '') +
                                     (st === 'giu_don' ? (statusFilter === 'giu_don' ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100') : '') +
+                                    (st === 'warning' ? (statusFilter === 'warning' ? 'bg-orange-600 text-white border-orange-600' : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100') : '') +
                                     (st === 'hoan_thanh' ? (statusFilter === 'hoan_thanh' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100') : '')
                                 }
                                 onClick={() => setStatusFilter(prev => (prev === st ? '' : st))}
@@ -269,6 +271,7 @@ export default function OrderManagement() {
                                             <option value="di_don">Đi đơn</option>
                                             <option value="chua_rep">Chưa rep</option>
                                             <option value="giu_don">Giữ đơn</option>
+                                            <option value="warning">Cảnh báo</option>
                                             <option value="hoan_thanh">Hoàn thành</option>
                                         </select>
                                     </td>
@@ -379,6 +382,7 @@ export default function OrderManagement() {
                                                 <option value="di_don">Đi đơn</option>
                                                 <option value="chua_rep">Chưa rep</option>
                                                 <option value="giu_don">Giữ đơn</option>
+                                                <option value="warning">Cảnh báo</option>
                                                 <option value="hoan_thanh">Hoàn thành</option>
                                             </select>
                                         </div>
@@ -455,6 +459,7 @@ export default function OrderManagement() {
                                                 <option value="di_don">Đi đơn</option>
                                                 <option value="chua_rep">Chưa rep</option>
                                                 <option value="giu_don">Giữ đơn</option>
+                                                <option value="warning">Cảnh báo</option>
                                                 <option value="hoan_thanh">Hoàn thành</option>
                                             </select>
                                         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, CalendarClock, Clock, CreditCard, Settings } from 'lucide-react';
+import { Bell, CalendarClock, Clock, CreditCard, Settings, ShoppingBag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -43,6 +43,13 @@ export default function HomeView() {
                         <p className="text-sm font-medium">Giao dịch</p>
                     </button>
                     <button
+                        onClick={() => router.push('/orders')}
+                        className="p-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-all duration-200 border border-emerald-200 hover:border-emerald-300 hover:shadow-md"
+                    >
+                        <ShoppingBag className="h-8 w-8 mb-2 text-emerald-600 mx-auto" />
+                        <p className="text-sm font-medium">Đơn hàng</p>
+                    </button>
+                    <button
                         onClick={() => router.push('/attendance')}
                         className="p-4 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-all duration-200 border border-green-200 hover:border-green-300 hover:shadow-md"
                     >
@@ -56,18 +63,6 @@ export default function HomeView() {
                         <CalendarClock className="h-8 w-8 mb-2 text-purple-600 mx-auto" />
                         <p className="text-sm font-medium">Đăng ký ca</p>
                     </button>
-
-                    {/* Nút Thông báo chỉ hiện cho staff */}
-                    {userRole !== 'admin' && (
-                        <button
-                            onClick={() => router.push('/push')}
-                            className="p-4 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-all duration-200 border border-amber-200 hover:border-amber-300 hover:shadow-md"
-                        >
-                            <Bell className="h-8 w-8 mb-2 text-amber-600 mx-auto" />
-                            <p className="text-sm font-medium">Thông báo</p>
-                        </button>
-                    )}
-
                     {/* Nút Quản lý chỉ hiện cho admin */}
                     {userRole === 'admin' && (
                         <button
