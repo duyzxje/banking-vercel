@@ -14,6 +14,8 @@ export default function OrderManagement() {
     const limit = DEFAULT_LIMIT;
     const [search, setSearch] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("");
+    const [touchStartX, setTouchStartX] = useState<number | null>(null);
+    const [touchDeltaX, setTouchDeltaX] = useState<Record<number, number>>({});
     // giữ giá trị theo định dạng input datetime-local: YYYY-MM-DDTHH:mm
     const toInputLocal = (d: Date): string => {
         const yyyy = d.getFullYear();
@@ -90,6 +92,17 @@ export default function OrderManagement() {
             return bKey - aKey;
         });
     }, [orders]);
+
+    const getStatusTint = (status: OrderStatus) => {
+        switch (status) {
+            case 'gap': return 'bg-red-50 border border-red-200';
+            case 'di_don': return 'bg-yellow-50 border border-yellow-200';
+            case 'chua_rep': return 'bg-blue-50 border border-blue-200';
+            case 'giu_don': return 'bg-purple-50 border border-purple-200';
+            case 'hoan_thanh': return 'bg-emerald-50 border border-emerald-200';
+            default: return '';
+        }
+    };
 
     const handleChangeStatus = async (orderId: number, nextStatus: OrderStatus) => {
         // optimistic update
@@ -175,21 +188,6 @@ export default function OrderManagement() {
                             onChange={e => { setSearch(e.target.value); }}
                         />
                     </div>
-                    <div className="flex flex-col">
-                        <label className="text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-                        <select
-                            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            value={statusFilter}
-                            onChange={e => { setStatusFilter(e.target.value); }}
-                        >
-                            <option value="">Tất cả</option>
-                            <option value="gap">Gấp</option>
-                            <option value="di_don">Đi đơn</option>
-                            <option value="chua_rep">Chưa rep</option>
-                            <option value="giu_don">Giữ đơn</option>
-                            <option value="hoan_thanh">Hoàn thành</option>
-                        </select>
-                    </div>
                     <div className="flex md:justify-end">
                         <button
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -208,26 +206,27 @@ export default function OrderManagement() {
                     {(['gap', 'di_don', 'chua_rep', 'giu_don', 'hoan_thanh'] as OrderStatus[]).map(st => {
                         const count = statusCounts.find(s => s.status === st)?.count ?? 0;
                         return (
-                            <div
+                            <button
                                 key={st}
                                 className={
-                                    `px-4 py-2 rounded-lg border-2 font-medium ` +
-                                    (st === 'gap' ? 'bg-red-50 border-red-200 text-red-700' : '') +
-                                    (st === 'di_don' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : '') +
-                                    (st === 'chua_rep' ? 'bg-blue-50 border-blue-200 text-blue-700' : '') +
-                                    (st === 'giu_don' ? 'bg-purple-50 border-purple-200 text-purple-700' : '') +
-                                    (st === 'hoan_thanh' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : '')
+                                    `px-4 py-2 rounded-lg border-2 font-medium transition-colors ` +
+                                    (st === 'gap' ? (statusFilter === 'gap' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100') : '') +
+                                    (st === 'di_don' ? (statusFilter === 'di_don' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100') : '') +
+                                    (st === 'chua_rep' ? (statusFilter === 'chua_rep' ? 'bg-blue-600 text-white border-blue-600' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100') : '') +
+                                    (st === 'giu_don' ? (statusFilter === 'giu_don' ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100') : '') +
+                                    (st === 'hoan_thanh' ? (statusFilter === 'hoan_thanh' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100') : '')
                                 }
+                                onClick={() => setStatusFilter(prev => (prev === st ? '' : st))}
                             >
                                 {ORDER_STATUS_LABELS[st]}: <span className="font-bold text-lg">{count}</span>
-                            </div>
+                            </button>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="font-semibold text-lg text-gray-800">Danh sách đơn hàng</h3>
                 </div>
@@ -244,7 +243,7 @@ export default function OrderManagement() {
                                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-200">
                             {loading && (
                                 <tr><td className="px-6 py-4 text-center text-gray-500" colSpan={7}>Đang tải...</td></tr>
                             )}
@@ -253,12 +252,7 @@ export default function OrderManagement() {
                             )}
                             {!loading && sortedOrders.map(o => (
                                 <tr key={o.id} className={
-                                    `hover:bg-gray-50 ` +
-                                    (o.status === 'gap' ? 'bg-red-50 border-l-4 border-l-red-400' : '') +
-                                    (o.status === 'di_don' ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : '') +
-                                    (o.status === 'chua_rep' ? 'bg-blue-50 border-l-4 border-l-blue-400' : '') +
-                                    (o.status === 'giu_don' ? 'bg-purple-50 border-l-4 border-l-purple-400' : '') +
-                                    (o.status === 'hoan_thanh' ? 'bg-emerald-50 border-l-4 border-l-emerald-400' : '')
+                                    getStatusTint(o.status)
                                 }>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{o.id}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{o.customer_username}</td>
@@ -298,6 +292,101 @@ export default function OrderManagement() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden select-none">
+                <div className="px-4 py-3 border-b border-gray-200">
+                    <h3 className="font-semibold text-base text-gray-800">Danh sách đơn hàng</h3>
+                </div>
+                <div className="divide-y divide-gray-100">
+                    {loading && (
+                        <div className="p-4 text-center text-gray-500">Đang tải...</div>
+                    )}
+                    {!loading && sortedOrders.length === 0 && (
+                        <div className="p-4 text-center text-gray-500">Không có dữ liệu</div>
+                    )}
+                    {!loading && sortedOrders.map(o => {
+                        const dx = touchDeltaX[o.id] || 0;
+                        const leftOpacity = Math.min(Math.max(dx / 80, 0), 1);
+                        const rightOpacity = Math.min(Math.max(-dx / 80, 0), 1);
+                        return (
+                            <div key={o.id} className="relative">
+                                {/* Background cues */}
+                                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                    <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-emerald-100" style={{ opacity: leftOpacity }}></div>
+                                    <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-red-100" style={{ opacity: rightOpacity }}></div>
+                                    <div className="absolute inset-0 flex items-center justify-between px-4">
+                                        <div className="flex items-center gap-2 text-emerald-700" style={{ opacity: leftOpacity }}>
+                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                                            <span className="text-xs font-medium">Hoàn thành</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-red-700" style={{ opacity: rightOpacity }}>
+                                            <span className="text-xs font-medium">Xóa</span>
+                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Foreground card */}
+                                <div
+                                    className={
+                                        `relative px-4 py-3 rounded-md ` + getStatusTint(o.status)
+                                    }
+                                    onClick={() => handleViewOrder(o)}
+                                    onTouchStart={(e) => {
+                                        setTouchStartX(e.touches[0].clientX);
+                                    }}
+                                    onTouchMove={(e) => {
+                                        if (touchStartX === null) return;
+                                        const currentX = e.touches[0].clientX;
+                                        const delta = currentX - touchStartX;
+                                        setTouchDeltaX(prev => ({ ...prev, [o.id]: delta }));
+                                    }}
+                                    onTouchEnd={() => {
+                                        const delta = touchDeltaX[o.id] || 0;
+                                        setTouchStartX(null);
+                                        setTouchDeltaX(prev => ({ ...prev, [o.id]: 0 }));
+                                        if (delta <= -80) {
+                                            handleDelete(o.id);
+                                            return;
+                                        }
+                                        if (delta >= 80) {
+                                            handleChangeStatus(o.id, 'hoan_thanh');
+                                            return;
+                                        }
+                                    }}
+                                    style={{ transform: `translateX(${dx}px)`, transition: touchStartX === null ? 'transform 0.15s ease-out' : 'none' }}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        {/* Left info */}
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-sm font-semibold text-gray-900 truncate">#{o.id} · {o.customer_username}</div>
+                                            <div className="mt-2 space-y-0.5 text-xs text-gray-700">
+                                                <div className="truncate"><span className="text-gray-500">Tổng:</span> {o.total_amount.toLocaleString()} VNĐ</div>
+                                                <div className="truncate"><span className="text-gray-500">Tạo:</span> {o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '-'}</div>
+                                                <div className="truncate"><span className="text-gray-500">Live:</span> {o.live_date ? new Date(o.live_date).toLocaleDateString('vi-VN') : '-'}</div>
+                                            </div>
+                                        </div>
+                                        {/* Right actions: status change */}
+                                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                            <select
+                                                className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                                value={o.status}
+                                                onChange={e => handleChangeStatus(o.id, e.target.value as OrderStatus)}
+                                            >
+                                                <option value="gap">Gấp</option>
+                                                <option value="di_don">Đi đơn</option>
+                                                <option value="chua_rep">Chưa rep</option>
+                                                <option value="giu_don">Giữ đơn</option>
+                                                <option value="hoan_thanh">Hoàn thành</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -354,6 +443,20 @@ export default function OrderManagement() {
                                                 <span className="text-sm text-gray-600">Ngày tạo:</span>
                                                 <p className="font-medium">{selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString('vi-VN') : '-'}</p>
                                             </div>
+                                        </div>
+                                        <div className="mt-4 flex items-center justify-end">
+                                            <label className="text-sm text-gray-600 mr-2">Thay đổi trạng thái:</label>
+                                            <select
+                                                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                                value={selectedOrder.status}
+                                                onChange={e => handleChangeStatus(selectedOrder.id, e.target.value as OrderStatus)}
+                                            >
+                                                <option value="gap">Gấp</option>
+                                                <option value="di_don">Đi đơn</option>
+                                                <option value="chua_rep">Chưa rep</option>
+                                                <option value="giu_don">Giữ đơn</option>
+                                                <option value="hoan_thanh">Hoàn thành</option>
+                                            </select>
                                         </div>
                                     </div>
 

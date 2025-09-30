@@ -4,6 +4,17 @@ import { useEffect } from 'react';
 
 const ServiceWorkerRegistration: React.FC = () => {
     useEffect(() => {
+        if (process.env.NODE_ENV !== 'production') {
+            // Ensure no service worker is active during development to avoid HMR chunk issues
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => { });
+            }
+            // Also clear caches to avoid stale chunk URLs
+            if (typeof caches !== 'undefined') {
+                caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(() => { });
+            }
+            return;
+        }
         // Register service worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')

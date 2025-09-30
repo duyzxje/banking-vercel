@@ -1,10 +1,7 @@
 import { CreateFromCommentsPayload, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderItem, OrderStatus } from './OrderTypes';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabaseClient';
 
-const SUPABASE_URL = 'https://ngjdcukquavgtegvfjbd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5namRjdWtxdWF2Z3RlZ3ZmamJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNjU3NjAsImV4cCI6MjA3NDc0MTc2MH0.FedzkHLD-zgl_xG1BSyfuTI2U-szNKmOlZRto0ikoDs';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Avoid creating Supabase client at module import time to prevent HMR issues.
 
 // Helpers to map DB rows to app Order/OrderItem types
 type OrderRow = {
@@ -53,6 +50,7 @@ function mapItem(row: OrderItemRow): OrderItem {
 
 export const OrderService = {
     async listOrders(options: { start?: string; end?: string; page?: number; limit?: number; search?: string; status?: string; }): Promise<ListOrdersResponse> {
+        const supabase = getSupabase();
         const limit = options.limit ?? 100000;
         let query = supabase.from('orders').select('*', { count: 'exact' });
 
@@ -93,6 +91,7 @@ export const OrderService = {
     },
 
     async getOrder(orderId: number): Promise<{ order: Order; items: OrderItem[] }> {
+        const supabase = getSupabase();
         const { data: orderRow, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
         if (error) {
             console.error('Supabase getOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
@@ -107,12 +106,14 @@ export const OrderService = {
     },
 
     async getOrderItems(orderId: number): Promise<{ data: OrderItem[] }> {
+        const supabase = getSupabase();
         const { data, error } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
         if (error) throw error;
         return { data: (data as OrderItemRow[]).map(mapItem) };
     },
 
     async updateStatus(orderId: number, status: OrderStatus): Promise<{ success: boolean; orderId: number; status: OrderStatus } & Record<string, unknown>> {
+        const supabase = getSupabase();
         const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
         if (error) {
             console.error('Supabase updateStatus error:', { orderId, status, message: error.message, details: error.details, hint: error.hint });
@@ -123,6 +124,7 @@ export const OrderService = {
 
     async createFromComments(payload: CreateFromCommentsPayload): Promise<{ success: boolean; order_id: number; total: number; items: OrderItem[] }> {
         // Minimal example: create empty order with username and live_date
+        const supabase = getSupabase();
         const { data, error } = await supabase
             .from('orders')
             .insert({ customer_username: payload.username, live_date: payload.liveDate, total_amount: 0, status: 'chua_rep' })
@@ -136,6 +138,7 @@ export const OrderService = {
     },
 
     async deleteOrder(orderId: number): Promise<{ success: boolean } & Record<string, unknown>> {
+        const supabase = getSupabase();
         const { error } = await supabase.from('orders').delete().eq('id', orderId);
         if (error) {
             console.error('Supabase deleteOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
@@ -145,6 +148,7 @@ export const OrderService = {
     },
 
     async deleteMultiple(orderIds: number[]): Promise<DeleteMultipleResponseItem[]> {
+        const supabase = getSupabase();
         const { error } = await supabase.from('orders').delete().in('id', orderIds);
         if (error) {
             console.error('Supabase deleteMultiple error:', { orderIds, message: error.message, details: error.details, hint: error.hint });
