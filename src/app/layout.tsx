@@ -5,6 +5,7 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import AutoPushInitializer from "@/components/AutoPushInitializer";
 import AuthGate from "@/components/AuthGate";
 import RouteLoadingBar from "@/components/RouteLoadingBar";
+import ChunkErrorHandler from "@/components/ChunkErrorHandler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ChunkErrorHandler />
         <RouteLoadingBar />
         <ServiceWorkerRegistration />
         <AuthGate>

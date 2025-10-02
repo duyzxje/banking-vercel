@@ -1,5 +1,5 @@
 // Service Worker for Push Notifications
-const CACHE_NAME = 'worktime-app-v2';
+const CACHE_NAME = 'worktime-app-v3'; // Tăng version để clear cache cũ
 const urlsToCache = [
     '/',
     '/manifest.webmanifest'
@@ -60,9 +60,11 @@ self.addEventListener('fetch', (event) => {
     if (reqUrl.origin !== self.location.origin) {
         return; // Let the browser handle it directly
     }
-    // Never cache Next.js build assets or HMR/runtime chunks
-    if (reqUrl.pathname.startsWith('/_next/')) {
-        return; // Let the network handle it directly
+    // Never cache Next.js build assets, chunks, or HMR/runtime files
+    if (reqUrl.pathname.startsWith('/_next/') ||
+        reqUrl.pathname.includes('/chunks/') ||
+        reqUrl.pathname.includes('.hot-update.')) {
+        return; // Let the network handle it directly - luôn lấy bản mới nhất
     }
 
     event.respondWith(
