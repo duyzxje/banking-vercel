@@ -569,13 +569,13 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                 {calculateResult.dailyRecords.map((record, index) => (
                                                     <tr key={index} className="hover:bg-gray-50">
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                            {new Date(record.date).toLocaleDateString('vi-VN')}
+                                                            {new Date(record.date).toLocaleDateString('vi-VN', { timeZone: 'UTC' })}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                            {record.checkInTime ? new Date(record.checkInTime).toTimeString().slice(0, 5) : '--:--'}
+                                                            {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                            {record.checkOutTime ? new Date(record.checkOutTime).toTimeString().slice(0, 5) : '--:--'}
+                                                            {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                             {formatHours(record.workHours)}
@@ -720,7 +720,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                             {formatCurrency(record.totalSalary)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {new Date(record.createdAt).toLocaleDateString('vi-VN')}
+                                                            {new Date(record.createdAt).toLocaleDateString('vi-VN', { timeZone: 'UTC' })}
                                                         </td>
                                                     </tr>
                                                 ))}

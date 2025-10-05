@@ -11,10 +11,7 @@ export interface AttendanceRecord {
     id?: string; // compatibility: some code paths reference 'id'
     user: string;
     checkInTime: string;
-    checkInTimeFormatted: string;
-    checkInDateFormatted: string;
     checkOutTime?: string;
-    checkOutTimeFormatted?: string;
     checkInLocation?: {
         type: string;
         coordinates: [number, number];

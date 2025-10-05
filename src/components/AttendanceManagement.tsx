@@ -14,9 +14,7 @@ interface DailyRecord {
 interface AttendanceRecord {
     id: string;
     checkInTime: string;
-    checkInTimeFormatted: string;
     checkOutTime?: string;
-    checkOutTimeFormatted?: string;
     status: 'checked-in' | 'checked-out' | 'absent';
     workDuration?: number;
     workTimeFormatted?: string;
@@ -477,7 +475,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN')
+                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN', { timeZone: 'UTC' })
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -496,7 +494,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')
+                                                        record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--'
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -533,7 +531,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             />
                                                         </div>
                                                     ) : (
-                                                        record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')
+                                                        record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--'
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -620,7 +618,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                         />
                                                     ) : (
-                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN')
+                                                        new Date(record.checkInTime).toLocaleDateString('vi-VN', { timeZone: 'UTC' })
                                                     )}
                                                 </span>
                                             </div>
@@ -682,7 +680,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        `${record.checkInTimeFormatted || (record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')} - ${record.checkOutTimeFormatted || (record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--')}`
+                                                        `${record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--'} - ${record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) : '--:--'}`
                                                     )}
                                                 </span>
                                             </div>

@@ -260,7 +260,7 @@ export default function OrderManagement() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{o.customer_username}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{o.total_amount.toLocaleString()}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{o.live_date ? new Date(o.live_date).toLocaleDateString('vi-VN') : '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{o.live_date ? new Date(o.live_date).toLocaleDateString('vi-VN', { timeZone: 'UTC' }) : '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <select
                                             className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -368,7 +368,7 @@ export default function OrderManagement() {
                                             <div className="mt-2 space-y-0.5 text-xs text-gray-700">
                                                 <div className="truncate"><span className="text-gray-500">Tổng:</span> {o.total_amount.toLocaleString()} VNĐ</div>
                                                 <div className="truncate"><span className="text-gray-500">Tạo:</span> {o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '-'}</div>
-                                                <div className="truncate"><span className="text-gray-500">Live:</span> {o.live_date ? new Date(o.live_date).toLocaleDateString('vi-VN') : '-'}</div>
+                                                <div className="truncate"><span className="text-gray-500">Live:</span> {o.live_date ? new Date(o.live_date).toLocaleDateString('vi-VN', { timeZone: 'UTC' }) : '-'}</div>
                                             </div>
                                         </div>
                                         {/* Right actions: status change */}
@@ -437,7 +437,7 @@ export default function OrderManagement() {
                                             </div>
                                             <div>
                                                 <span className="text-sm text-gray-600">Ngày live:</span>
-                                                <p className="font-medium">{selectedOrder.live_date ? new Date(selectedOrder.live_date).toLocaleDateString('vi-VN') : '-'}</p>
+                                                <p className="font-medium">{selectedOrder.live_date ? new Date(selectedOrder.live_date).toLocaleDateString('vi-VN', { timeZone: 'UTC' }) : '-'}</p>
                                             </div>
                                             <div>
                                                 <span className="text-sm text-gray-600">Trạng thái:</span>

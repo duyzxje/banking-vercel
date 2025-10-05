@@ -174,7 +174,7 @@ export default function TransactionsView() {
                                 <div className="text-right">
                                     <span className="text-sm font-medium text-gray-700">{filtered.length} giao dịch</span>
                                     {lastUpdateTime && (
-                                        <p className="text-xs text-gray-500">Cập nhật: {lastUpdateTime.toLocaleTimeString('vi-VN')}</p>
+                                        <p className="text-xs text-gray-500">Cập nhật: {lastUpdateTime.toLocaleTimeString('vi-VN', { timeZone: 'UTC' })}</p>
                                     )}
                                 </div>
                                 <button onClick={loadTransactions} disabled={loading} className="p-2 text-gray-400 hover:text-blue-600 transition-colors duration-200 disabled:opacity-50 hover:bg-blue-50 rounded-lg" title="Làm mới">

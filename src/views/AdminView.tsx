@@ -14,7 +14,7 @@ export default function AdminView() {
     const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
     const [totalEmployees, setTotalEmployees] = useState<number>(0);
     const [currentlyWorking, setCurrentlyWorking] = useState<number>(0);
-    const [currentlyWorkingDetails, setCurrentlyWorkingDetails] = useState<Array<{ userId: string; name: string; checkInTime: string; checkInTimeFormatted: string }>>([]);
+    const [currentlyWorkingDetails, setCurrentlyWorkingDetails] = useState<Array<{ userId: string; name: string; checkInTime: string }>>([]);
 
     const { isInitialized: pushInitialized, isSubscribed: pushSubscribed, permission: pushPermission, isSupported: pushSupported } = usePushNotifications();
 
@@ -35,11 +35,10 @@ export default function AdminView() {
                 if (workingData.success) {
                     setCurrentlyWorking(workingData.data.count);
                     if (workingData.data.currentlyWorking?.length > 0) {
-                        setCurrentlyWorkingDetails(workingData.data.currentlyWorking.map((emp: { userId: string; name: string; checkInTime: string; checkInTimeFormatted: string }) => ({
+                        setCurrentlyWorkingDetails(workingData.data.currentlyWorking.map((emp: { userId: string; name: string; checkInTime: string }) => ({
                             userId: emp.userId,
                             name: emp.name,
                             checkInTime: emp.checkInTime,
-                            checkInTimeFormatted: emp.checkInTimeFormatted,
                         })));
                     } else {
                         setCurrentlyWorkingDetails([]);
@@ -207,7 +206,7 @@ export default function AdminView() {
                                                         <div className="text-right">
                                                             <p className="text-xs text-gray-500">Check-in:</p>
                                                             <p className="text-sm font-medium text-green-600">
-                                                                {employee.checkInTimeFormatted || (employee.checkInTime ? new Date(employee.checkInTime).toTimeString().slice(0, 5) : '--:--')}
+                                                                {employee.checkInTime ? new Date(employee.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}
                                                             </p>
                                                         </div>
                                                     </div>
