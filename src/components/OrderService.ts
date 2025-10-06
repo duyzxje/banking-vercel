@@ -1,5 +1,4 @@
 import { CreateFromCommentsPayload, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderItem, OrderStatus } from './OrderTypes';
-import { getSupabase } from '@/lib/supabaseClient';
 
 // Avoid creating Supabase client at module import time to prevent HMR issues.
 
@@ -48,113 +47,76 @@ function mapItem(row: OrderItemRow): OrderItem {
     };
 }
 
+// Follow Worktime convention: allow overriding via NEXT_PUBLIC_WORKTIME_API_URL
+// Fallback to the hosted Worktime API, and lastly '/api' for local proxy
+const API_BASE =
+    process.env.NEXT_PUBLIC_WORKTIME_API_URL?.replace(/\/$/, '')
+    || 'https://worktime-dux3.onrender.com/api'
+    || '/api';
+
+async function httpJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...(init && init.headers ? init.headers : {})
+        },
+        cache: 'no-store'
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<T>;
+}
+
 export const OrderService = {
     async listOrders(options: { start?: string; end?: string; page?: number; limit?: number; search?: string; status?: string; }): Promise<ListOrdersResponse> {
-        const supabase = getSupabase();
-        const limit = options.limit ?? 100000;
-        let query = supabase.from('orders').select('*', { count: 'exact' });
-
-        if (options.start) query = query.gte('created_at', options.start);
-        if (options.end) query = query.lte('created_at', options.end);
-        if (options.search && options.search.trim()) {
-            const s = options.search.trim();
-            query = query.ilike('customer_username', `%${s}%`);
-        }
-        if (options.status && options.status.trim()) {
-            query = query.eq('status', options.status);
-        }
-        query = query.order('created_at', { ascending: false }).limit(limit);
-
-        const { data, error } = await query;
-        if (error) {
-            console.error('Supabase listOrders error:', { message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to list orders: ${error.message}`);
-        }
-        const orders: Order[] = (data as OrderRow[]).map(mapOrder);
-
-        // Build status counts
-        const statuses: OrderStatus[] = ['gap', 'di_don', 'chua_rep', 'giu_don', 'warning', 'hoan_thanh'];
-        const statusCounts: { status: OrderStatus; count: number }[] = [];
-        for (const st of statuses) {
-            const { count, error: errCount } = await supabase
-                .from('orders')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', st);
-            if (errCount) {
-                console.error('Supabase status count error:', { status: st, message: errCount.message, details: errCount.details, hint: errCount.hint });
-                throw new Error(`Failed to count status ${st}: ${errCount.message}`);
-            }
-            statusCounts.push({ status: st, count: count ?? 0 });
-        }
-
-        return { data: orders, statusCounts };
+        const params = new URLSearchParams();
+        if (options.start) params.set('start', options.start);
+        if (options.end) params.set('end', options.end);
+        if (options.page) params.set('page', String(options.page));
+        if (options.limit) params.set('limit', String(options.limit));
+        if (options.search && options.search.trim()) params.set('search', options.search.trim());
+        if (options.status && options.status.trim()) params.set('status', options.status.trim());
+        return httpJson<ListOrdersResponse>(`/orders?${params.toString()}`);
     },
 
     async getOrder(orderId: number): Promise<{ order: Order; items: OrderItem[] }> {
-        const supabase = getSupabase();
-        const { data: orderRow, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
-        if (error) {
-            console.error('Supabase getOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to get order: ${error.message}`);
-        }
-        const { data: itemsRows, error: itemsErr } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
-        if (itemsErr) {
-            console.error('Supabase getOrderItems error:', { orderId, message: itemsErr.message, details: itemsErr.details, hint: itemsErr.hint });
-            throw new Error(`Failed to get order items: ${itemsErr.message}`);
-        }
-        return { order: mapOrder(orderRow as OrderRow), items: (itemsRows as OrderItemRow[]).map(mapItem) };
+        return httpJson<{ order: Order; items: OrderItem[] }>(`/orders/${orderId}`);
     },
 
     async getOrderItems(orderId: number): Promise<{ data: OrderItem[] }> {
-        const supabase = getSupabase();
-        const { data, error } = await supabase.from('order_items').select('*').eq('order_id', orderId).order('id');
-        if (error) throw error;
-        return { data: (data as OrderItemRow[]).map(mapItem) };
+        return httpJson<{ data: OrderItem[] }>(`/orders/${orderId}/items`);
     },
 
     async updateStatus(orderId: number, status: OrderStatus): Promise<{ success: boolean; orderId: number; status: OrderStatus } & Record<string, unknown>> {
-        const supabase = getSupabase();
-        const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
-        if (error) {
-            console.error('Supabase updateStatus error:', { orderId, status, message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to update status: ${error.message}`);
-        }
-        return { success: true, orderId, status };
+        return httpJson<{ success: boolean; orderId: number; status: OrderStatus } & Record<string, unknown>>(`/orders/${orderId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
     },
 
     async createFromComments(payload: CreateFromCommentsPayload): Promise<{ success: boolean; order_id: number; total: number; items: OrderItem[] }> {
-        // Minimal example: create empty order with username and live_date
-        const supabase = getSupabase();
-        const { data, error } = await supabase
-            .from('orders')
-            .insert({ customer_username: payload.username, live_date: payload.liveDate, total_amount: 0, status: 'chua_rep' })
-            .select('*')
-            .single();
-        if (error) {
-            console.error('Supabase createFromComments error:', { payload, message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to create order: ${error.message}`);
-        }
-        return { success: true, order_id: (data as OrderRow).id, total: 0, items: [] };
+        return httpJson<{ success: boolean; order_id: number; total: number; items: OrderItem[] }>(`/orders/from-comments`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
     },
 
     async deleteOrder(orderId: number): Promise<{ success: boolean } & Record<string, unknown>> {
-        const supabase = getSupabase();
-        const { error } = await supabase.from('orders').delete().eq('id', orderId);
-        if (error) {
-            console.error('Supabase deleteOrder error:', { orderId, message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to delete order: ${error.message}`);
-        }
-        return { success: true };
+        return httpJson<{ success: boolean } & Record<string, unknown>>(`/orders/${orderId}`, {
+            method: 'DELETE'
+        });
     },
 
     async deleteMultiple(orderIds: number[]): Promise<DeleteMultipleResponseItem[]> {
-        const supabase = getSupabase();
-        const { error } = await supabase.from('orders').delete().in('id', orderIds);
-        if (error) {
-            console.error('Supabase deleteMultiple error:', { orderIds, message: error.message, details: error.details, hint: error.hint });
-            throw new Error(`Failed to delete multiple: ${error.message}`);
-        }
-        return orderIds.map(id => ({ orderId: id, success: true }));
+        return httpJson<DeleteMultipleResponseItem[]>(`/orders/bulk-delete`, {
+            method: 'POST',
+            body: JSON.stringify({ ids: orderIds })
+        });
     }
 };
 
