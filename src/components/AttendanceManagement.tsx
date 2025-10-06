@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit, DollarSign, Plus, User } from 'lucide-react';
+import { Eye, Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Save, X, Edit, DollarSign, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -155,8 +155,8 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ isAdmin }) 
                     else if (data.data?.users || data.users) {
                         const users = data.data?.users || data.users || [];
                         const convertedUsers = users
-                            .filter((user: any) => user.role !== 'admin') // Lọc bỏ admin
-                            .map((user: any) => ({
+                            .filter((user: { role?: string }) => user.role !== 'admin') // Lọc bỏ admin
+                            .map((user: { _id?: string; id?: string; name: string; username: string; email: string; hourlyRate?: number }) => ({
                                 id: user._id || user.id,
                                 name: user.name,
                                 username: user.username,

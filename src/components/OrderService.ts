@@ -23,29 +23,7 @@ type OrderItemRow = {
     created_at?: string | null;
 };
 
-function mapOrder(row: OrderRow): Order {
-    return {
-        id: row.id,
-        customer_username: row.customer_username,
-        total_amount: row.total_amount,
-        status: row.status,
-        live_date: row.live_date ?? undefined,
-        created_at: row.created_at ?? undefined
-    };
-}
-
-function mapItem(row: OrderItemRow): OrderItem {
-    return {
-        id: row.id,
-        order_id: row.order_id,
-        product_name: row.product_name ?? undefined,
-        content: row.content ?? undefined,
-        quantity: row.quantity,
-        unit_price: row.unit_price ?? undefined,
-        price: row.price ?? undefined,
-        created_at: row.created_at ?? undefined
-    };
-}
+// Removed unused functions
 
 // Follow Worktime convention: allow overriding via NEXT_PUBLIC_WORKTIME_API_URL
 // Fallback to the hosted Worktime API, and lastly '/api' for local proxy

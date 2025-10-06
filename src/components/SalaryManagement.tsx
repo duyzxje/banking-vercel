@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DollarSign, Download, Edit, Eye, ChevronLeft, ChevronRight, Users, Calendar, Clock, TrendingUp, X, Save } from 'lucide-react';
+import { DollarSign, Download, Edit, Eye, ChevronLeft, ChevronRight, Users, Clock, TrendingUp, X, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -92,10 +92,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
         totalSalary: number;
         averageSalary: number;
     } | null>(null);
-    const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<{ userId: string; name: string } | null>(null);
-    const [salaryHistory, setSalaryHistory] = useState<SalaryHistoryRecord[]>([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
     const [showCalculateModal, setShowCalculateModal] = useState(false);
     const [calculateLoading, setCalculateLoading] = useState(false);
     const [calculateResult, setCalculateResult] = useState<SalaryRecord | null>(null);
@@ -149,44 +146,6 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
         loadSalaryData();
     }, [loadSalaryData]);
 
-    const loadSalaryHistory = async (userId: string, year?: number) => {
-        try {
-            setHistoryLoading(true);
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setHistoryLoading(false);
-                return;
-            }
-
-            const url = year
-                ? `https://worktime-dux3.onrender.com/api/salary/user/${userId}?year=${year}`
-                : `https://worktime-dux3.onrender.com/api/salary/user/${userId}`;
-
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    setSalaryHistory(data.data.salaryHistory || []);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading salary history:', error);
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-
-    const handleViewHistory = (userId: string, name: string) => {
-        // Chuyển sang xem chi tiết lương tháng
-        setSelectedUser({ userId, name });
-        handleViewDetailed(userId, name);
-    };
 
     const handleCalculateSalary = async (userId: string, month: number, year: number) => {
         try {

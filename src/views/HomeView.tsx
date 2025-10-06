@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, CalendarClock, Clock, CreditCard, Settings, ShoppingBag } from 'lucide-react';
+import { CalendarClock, Clock, CreditCard, Settings, ShoppingBag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
