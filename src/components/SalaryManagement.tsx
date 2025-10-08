@@ -322,7 +322,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                 // Skip immediate refetch to avoid overwriting per-day hourlyRate when backend doesn't return it yet
                 console.log('[HourlyRate] Updated state with backend record; skipping immediate refetch');
             } else {
-                let err: any = {};
+                let err: { message?: string; status?: number } = {};
                 try {
                     err = await response.json();
                 } catch {
@@ -497,7 +497,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
         }
     };
 
-    const handleExportSalary = async (userId: string, month: number, year: number) => {
+    const handleExportSalary = async (userId: string, month: number, year: number, displayName?: string) => {
         // Confirm before exporting salary report
         const isConfirmed = confirm(`Bạn có chắc chắn muốn xuất file Excel lương tháng ${month}/${year} cho nhân viên này?`);
         if (!isConfirmed) return;
@@ -522,7 +522,14 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `luong_${userId}_${month}_${year}.xlsx`;
+                const base = (displayName && displayName.trim().length > 0) ? displayName : userId;
+                const slug = String(base)
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '_')
+                    .replace(/[^a-zA-Z0-9_\-\.]/g, '')
+                    .slice(0, 80);
+                a.download = `luong_${slug}_${month}_${year}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -686,7 +693,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                             Chi tiết
                                         </button>
                                         <button
-                                            onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                            onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear(), getEmployeeName(record))}
                                             className="col-span-1 text-xs px-2 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded"
                                         >
                                             Xuất Excel
@@ -774,7 +781,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                         <Eye className="h-4 w-4" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                                        onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear(), getEmployeeName(record))}
                                                         className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md transition-colors"
                                                         title="Xuất báo cáo Excel"
                                                     >
@@ -933,7 +940,8 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                     onClick={() => detailedSalary && handleExportSalary(
                                         typeof detailedSalary.userId === 'string' ? detailedSalary.userId : detailedSalary.userId._id,
                                         detailedSalary.month,
-                                        detailedSalary.year
+                                        detailedSalary.year,
+                                        selectedUser.name
                                     )}
                                     className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md"
                                     title="Xuất Excel"
