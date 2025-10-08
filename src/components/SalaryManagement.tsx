@@ -256,48 +256,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
         loadSalaryDetailed(userId, month, year);
     };
 
-    const handleSaveDailySalary = async (date: string, value: number) => {
-        if (!detailedSalary?.salaryId) return;
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('Vui lòng đăng nhập lại');
-                return;
-            }
-
-            // Tìm daily record để lấy hourlyRate hiện tại
-            const dailyRecord = detailedSalary.dailyRecords.find(r => r.date === date);
-            if (!dailyRecord) {
-                alert('Không tìm thấy thông tin ngày công');
-                return;
-            }
-
-            const response = await fetch(`https://worktime-dux3.onrender.com/api/salary/daily/${detailedSalary.salaryId}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    date,
-                    dailySalary: value,
-                    hourlyRate: detailedSalary.hourlyRate || 0 // Gửi kèm hourlyRate hiện tại
-                })
-            });
-            if (response.ok) {
-                await loadSalaryDetailed(
-                    typeof detailedSalary.userId === 'string' ? detailedSalary.userId : detailedSalary.userId._id,
-                    detailedSalary.month,
-                    detailedSalary.year
-                );
-            } else {
-                const err = await response.json().catch(() => ({}));
-                alert(err.message || 'Không thể lưu lương ngày');
-            }
-        } catch (e) {
-            console.error('Error saving daily salary:', e);
-        }
-    };
+    // Daily salary editing removed per request; keep function unused to avoid accidental calls
 
     const handleSaveHourlyRate = async (date: string, hourlyRate: number) => {
         if (!detailedSalary?.salaryId) return;
@@ -315,26 +274,74 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                 return;
             }
 
+            const payload = {
+                date,
+                hourlyRate
+            };
+            console.log('[HourlyRate] Saving...', {
+                salaryId: detailedSalary.salaryId,
+                userId: typeof detailedSalary.userId === 'string' ? detailedSalary.userId : detailedSalary.userId._id,
+                month: detailedSalary.month,
+                year: detailedSalary.year,
+                payload
+            });
+
             const response = await fetch(`https://worktime-dux3.onrender.com/api/salary/daily/${detailedSalary.salaryId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    date,
-                    hourlyRate,
-                    dailySalary: dailyRecord.dailySalary // Gửi kèm dailySalary hiện tại
-                })
+                body: JSON.stringify(payload)
             });
+            console.log('[HourlyRate] Response:', response.status, response.statusText);
             if (response.ok) {
-                await loadSalaryDetailed(
-                    typeof detailedSalary.userId === 'string' ? detailedSalary.userId : detailedSalary.userId._id,
-                    detailedSalary.month,
-                    detailedSalary.year
-                );
+                let json: any = null;
+                try {
+                    json = await response.json();
+                } catch { }
+                if (json) {
+                    console.log('[HourlyRate] Response JSON:', json);
+                    const updated = json?.data?.updatedDailyRecord || json?.updatedDailyRecord;
+                    const summary = json?.data?.summary || json?.summary;
+                    if (updated) {
+                        setDetailedSalary(prev => {
+                            if (!prev) return prev;
+                            const newDaily = prev.dailyRecords.map(r => (
+                                ((r as any)._id && (r as any)._id === updated._id) || r.date === updated.date ? {
+                                    ...r,
+                                    dailySalary: updated.dailySalary,
+                                    // backend now returns per-day hourlyRate
+                                    hourlyRate: (updated as any).hourlyRate ?? (r as any).hourlyRate,
+                                    checkInTime: updated.checkInTime ?? r.checkInTime,
+                                    checkOutTime: updated.checkOutTime ?? r.checkOutTime,
+                                    workHours: updated.workHours ?? r.workHours,
+                                    status: updated.status ?? r.status
+                                } : r
+                            ));
+                            const merged = {
+                                ...prev,
+                                dailyRecords: newDaily,
+                                totalSalary: summary?.totalSalary ?? prev.totalSalary,
+                                totalBonus: summary?.totalBonus ?? prev.totalBonus,
+                                totalDeduction: summary?.totalDeduction ?? prev.totalDeduction,
+                                finalSalary: summary?.finalSalary ?? prev.finalSalary
+                            };
+                            console.log('[HourlyRate] State merged with updated record and summary');
+                            return merged;
+                        });
+                    }
+                }
+                // Skip immediate refetch to avoid overwriting per-day hourlyRate when backend doesn't return it yet
+                console.log('[HourlyRate] Updated state with backend record; skipping immediate refetch');
             } else {
-                const err = await response.json().catch(() => ({}));
+                let err: any = {};
+                try {
+                    err = await response.json();
+                } catch {
+                    err = { message: 'Unknown error', status: response.status };
+                }
+                console.error('[HourlyRate] Save failed', err);
                 alert(err.message || 'Không thể lưu mức lương/giờ');
             }
         } catch (e) {
@@ -641,10 +648,10 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                 </div>
             )}
 
-            {/* Salary Table */}
+            {/* Salary List */}
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Bảng lương tháng {format(selectedMonth, 'MM/yyyy', { locale: vi })}</h3>
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Bảng lương tháng {format(selectedMonth, 'MM/yyyy', { locale: vi })}</h3>
                 </div>
 
                 {loading ? (
@@ -653,110 +660,147 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 ) : salaryRecords.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Nhân viên
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Mức lương/giờ
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Tổng giờ
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Tổng lương
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Thao tác
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {salaryRecords.map((record) => (
-                                    <tr key={getUserId(record.userId)} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">{getEmployeeName(record)}</div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {editingRate?.userId === getUserId(record.userId) ? (
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="number"
-                                                        value={editingRate.rate}
-                                                        onChange={(e) => setEditingRate(prev =>
-                                                            prev ? { ...prev, rate: parseFloat(e.target.value) || 0 } : null
-                                                        )}
-                                                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                                        min="0"
-                                                        step="1000"
-                                                    />
-                                                    <button
-                                                        onClick={() => handleUpdateRate(getUserId(record.userId), editingRate.rate)}
-                                                        className="text-green-600 hover:text-green-900"
-                                                    >
-                                                        <Save className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingRate(null)}
-                                                        className="text-gray-600 hover:text-gray-900"
-                                                    >
-                                                        ×
-                                                    </button>
+                    <>
+                        {/* Mobile: Cards */}
+                        <div className="block md:hidden p-4 space-y-3">
+                            {salaryRecords.map((record) => (
+                                <div key={getUserId(record.userId)} className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="text-sm font-semibold text-gray-900">{getEmployeeName(record)}</div>
+                                            <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-700">
+                                                <div>
+                                                    <div className="text-gray-500">Lương/giờ</div>
+                                                    <div className="font-medium">{formatCurrency(record.hourlyRate)}</div>
                                                 </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm text-gray-900">{formatCurrency(record.hourlyRate)}</span>
-                                                    <button
-                                                        onClick={() => setEditingRate({ userId: getUserId(record.userId), rate: record.hourlyRate })}
-                                                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
+                                                <div>
+                                                    <div className="text-gray-500">Tổng giờ</div>
+                                                    <div className="font-medium">{formatHours(record.totalHours)}</div>
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {formatHours(record.totalHours)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {formatCurrency(record.totalSalary)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleCalculateSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
-                                                    disabled={calculateLoading}
-                                                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:text-gray-400 p-2 rounded-md transition-colors"
-                                                    title="Tính lương"
-                                                >
-                                                    <DollarSign className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleViewDetailed(getUserId(record.userId), getEmployeeName(record))}
-                                                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
-                                                    title="Xem chi tiết lương tháng"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
-                                                    className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md transition-colors"
-                                                    title="Xuất báo cáo Excel"
-                                                >
-                                                    <Download className="h-4 w-4" />
-                                                </button>
+                                                <div className="col-span-2">
+                                                    <div className="text-gray-500">Tổng lương</div>
+                                                    <div className="font-semibold text-gray-900">{formatCurrency(record.totalSalary)}</div>
+                                                </div>
                                             </div>
-                                        </td>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                        <button
+                                            onClick={() => handleCalculateSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                            disabled={calculateLoading}
+                                            className="col-span-1 text-xs px-2 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:text-gray-400 rounded"
+                                        >
+                                            Tính lương
+                                        </button>
+                                        <button
+                                            onClick={() => handleViewDetailed(getUserId(record.userId), getEmployeeName(record))}
+                                            className="col-span-1 text-xs px-2 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded"
+                                        >
+                                            Chi tiết
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                            className="col-span-1 text-xs px-2 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded"
+                                        >
+                                            Xuất Excel
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop: Table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nhân viên</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mức lương/giờ</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng giờ</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng lương</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {salaryRecords.map((record) => (
+                                        <tr key={getUserId(record.userId)} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{getEmployeeName(record)}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {editingRate?.userId === getUserId(record.userId) ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={editingRate.rate}
+                                                            onChange={(e) => setEditingRate(prev =>
+                                                                prev ? { ...prev, rate: parseFloat(e.target.value) || 0 } : null
+                                                            )}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                            min="0"
+                                                            step="1000"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleUpdateRate(getUserId(record.userId), editingRate.rate)}
+                                                            className="text-green-600 hover:text-green-900"
+                                                        >
+                                                            <Save className="h-4 w-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditingRate(null)}
+                                                            className="text-gray-600 hover:text-gray-900"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm text-gray-900">{formatCurrency(record.hourlyRate)}</span>
+                                                        <button
+                                                            onClick={() => setEditingRate({ userId: getUserId(record.userId), rate: record.hourlyRate })}
+                                                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatHours(record.totalHours)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(record.totalSalary)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleCalculateSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                                        disabled={calculateLoading}
+                                                        className="bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:text-gray-400 p-2 rounded-md transition-colors"
+                                                        title="Tính lương"
+                                                    >
+                                                        <DollarSign className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleViewDetailed(getUserId(record.userId), getEmployeeName(record))}
+                                                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 p-2 rounded-md transition-colors"
+                                                        title="Xem chi tiết lương tháng"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleExportSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
+                                                        className="bg-green-50 hover:bg-green-100 text-green-700 p-2 rounded-md transition-colors"
+                                                        title="Xuất báo cáo Excel"
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 ) : (
                     <div className="p-8 text-center">
                         <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -841,9 +885,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                         Lương ngày
                                                     </th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Trạng thái
-                                                    </th>
+                                                    {/* Bỏ cột Trạng thái theo yêu cầu */}
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
@@ -864,16 +906,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                             {formatCurrency(record.dailySalary)}
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${record.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                                record.status === 'incomplete' ? 'bg-yellow-100 text-yellow-800' :
-                                                                    'bg-red-100 text-red-800'
-                                                                }`}>
-                                                                {record.status === 'completed' ? 'Hoàn thành' :
-                                                                    record.status === 'incomplete' ? 'Chưa hoàn thành' :
-                                                                        'Không hợp lệ'}
-                                                            </span>
-                                                        </td>
+                                                        {/* Bỏ hiển thị trạng thái trong bảng chi tiết lương */}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -955,7 +988,68 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
 
                                     <div>
                                         <h4 className="text-md font-semibold text-gray-900 mb-3">Lương theo ngày</h4>
-                                        <div className="overflow-x-auto">
+                                        {/* Mobile: cards */}
+                                        <div className="block md:hidden space-y-3">
+                                            {(detailedSalary.dailyRecords || []).map((r) => {
+                                                const key = r.date;
+                                                const editedDailySalary = editDailyMap[key] ?? r.dailySalary;
+                                                const editedHourlyRate = editHourlyRateMap[key] ?? (r as any).hourlyRate ?? detailedSalary.hourlyRate ?? 0;
+                                                return (
+                                                    <div key={key} className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="text-sm font-medium text-gray-900">{new Date(r.date).toLocaleDateString('vi-VN', { timeZone: 'UTC' })}</div>
+                                                            {r.status === 'completed' && (
+                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">Hoàn thành</span>
+                                                            )}
+                                                            {r.status === 'incomplete' && (
+                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">Chưa hoàn thành</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 mb-2">
+                                                            <div>
+                                                                <div className="text-gray-500">Giờ vào</div>
+                                                                <div>{r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-gray-500">Giờ ra</div>
+                                                                <div>{r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '--:--'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-gray-500">Số giờ</div>
+                                                                <div>{formatHours(r.workHours)}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-gray-500">Lương ngày</div>
+                                                                <div className="font-medium">{formatCurrency(editedDailySalary)}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="number"
+                                                                className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                                value={editedHourlyRate}
+                                                                min={0}
+                                                                step={1000}
+                                                                onChange={(e) => setEditHourlyRateMap((prev) => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+                                                                placeholder="Lương/giờ"
+                                                            />
+                                                            <button
+                                                                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                                                                onClick={() => {
+                                                                    console.log('[HourlyRate] Click save', { date: r.date, editedHourlyRate });
+                                                                    handleSaveHourlyRate(r.date, editedHourlyRate);
+                                                                }}
+                                                            >
+                                                                Lưu
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Desktop: table */}
+                                        <div className="hidden md:block overflow-x-auto">
                                             <table className="min-w-full divide-y divide-gray-200">
                                                 <thead className="bg-gray-50">
                                                     <tr>
@@ -972,7 +1066,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     {(detailedSalary.dailyRecords || []).map((r) => {
                                                         const key = r.date;
                                                         const editedDailySalary = editDailyMap[key] ?? r.dailySalary;
-                                                        const editedHourlyRate = editHourlyRateMap[key] ?? detailedSalary.hourlyRate ?? 0;
+                                                        const editedHourlyRate = editHourlyRateMap[key] ?? (r as any).hourlyRate ?? detailedSalary.hourlyRate ?? 0;
                                                         return (
                                                             <tr key={key} className="hover:bg-gray-50">
                                                                 <td className="px-6 py-3 text-sm">{new Date(r.date).toLocaleDateString('vi-VN', { timeZone: 'UTC' })}</td>
@@ -990,28 +1084,17 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                                     />
                                                                 </td>
                                                                 <td className="px-6 py-3 text-sm">
-                                                                    <input
-                                                                        type="number"
-                                                                        className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
-                                                                        value={editedDailySalary}
-                                                                        min={0}
-                                                                        step={1000}
-                                                                        onChange={(e) => setEditDailyMap((prev) => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
-                                                                    />
+                                                                    <span>{formatCurrency(editedDailySalary)}</span>
                                                                 </td>
                                                                 <td className="px-6 py-3 text-sm">
                                                                     <div className="flex gap-1">
                                                                         <button
                                                                             className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
-                                                                            onClick={() => handleSaveHourlyRate(r.date, editedHourlyRate)}
+                                                                            onClick={() => {
+                                                                                console.log('[HourlyRate] Click save', { date: r.date, editedHourlyRate });
+                                                                                handleSaveHourlyRate(r.date, editedHourlyRate);
+                                                                            }}
                                                                             title="Lưu mức lương/giờ"
-                                                                        >
-                                                                            Lưu
-                                                                        </button>
-                                                                        <button
-                                                                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
-                                                                            onClick={() => handleSaveDailySalary(r.date, editedDailySalary)}
-                                                                            title="Lưu lương ngày"
                                                                         >
                                                                             Lưu
                                                                         </button>
@@ -1027,8 +1110,11 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <h4 className="text-md font-semibold text-gray-900 mb-3">Khoản cộng</h4>
-                                            <div className="space-y-2 mb-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h4 className="text-md font-semibold text-gray-900">Khoản cộng</h4>
+                                                <span className="text-xs text-green-700">Tổng: {formatCurrency(detailedSalary.totalBonus || 0)} ({(detailedSalary.bonuses || []).length})</span>
+                                            </div>
+                                            <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
                                                 {(detailedSalary.bonuses || []).length ? (detailedSalary.bonuses || []).map((b) => (
                                                     <div key={b._id} className="flex items-center justify-between bg-green-50 border border-green-100 rounded p-2">
                                                         <div>
@@ -1040,16 +1126,19 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     </div>
                                                 )) : <div className="text-sm text-gray-500">Chưa có khoản cộng</div>}
                                             </div>
-                                            <div className="flex gap-2">
-                                                <input type="number" className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Số tiền" value={newBonus.amount} onChange={(e) => setNewBonus({ ...newBonus, amount: parseFloat(e.target.value) || 0 })} />
-                                                <input type="text" className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Lý do" value={newBonus.reason} onChange={(e) => setNewBonus({ ...newBonus, reason: e.target.value })} />
-                                                <button className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm" onClick={handleAddBonus}>Thêm</button>
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                                <input type="number" className="w-full sm:w-32 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Số tiền" value={newBonus.amount} onChange={(e) => setNewBonus({ ...newBonus, amount: parseFloat(e.target.value) || 0 })} />
+                                                <input type="text" className="w-full flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Lý do" value={newBonus.reason} onChange={(e) => setNewBonus({ ...newBonus, reason: e.target.value })} />
+                                                <button className="w-full sm:w-auto px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm" onClick={handleAddBonus}>Thêm</button>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <h4 className="text-md font-semibold text-gray-900 mb-3">Khoản trừ</h4>
-                                            <div className="space-y-2 mb-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h4 className="text-md font-semibold text-gray-900">Khoản trừ</h4>
+                                                <span className="text-xs text-red-700">Tổng: {formatCurrency(detailedSalary.totalDeduction || 0)} ({(detailedSalary.deductions || []).length})</span>
+                                            </div>
+                                            <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
                                                 {(detailedSalary.deductions || []).length ? (detailedSalary.deductions || []).map((d) => (
                                                     <div key={d._id} className="flex items-center justify-between bg-red-50 border border-red-100 rounded p-2">
                                                         <div>
@@ -1061,10 +1150,10 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     </div>
                                                 )) : <div className="text-sm text-gray-500">Chưa có khoản trừ</div>}
                                             </div>
-                                            <div className="flex gap-2">
-                                                <input type="number" className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Số tiền" value={newDeduction.amount} onChange={(e) => setNewDeduction({ ...newDeduction, amount: parseFloat(e.target.value) || 0 })} />
-                                                <input type="text" className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Lý do" value={newDeduction.reason} onChange={(e) => setNewDeduction({ ...newDeduction, reason: e.target.value })} />
-                                                <button className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm" onClick={handleAddDeduction}>Thêm</button>
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                                <input type="number" className="w-full sm:w-32 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Số tiền" value={newDeduction.amount} onChange={(e) => setNewDeduction({ ...newDeduction, amount: parseFloat(e.target.value) || 0 })} />
+                                                <input type="text" className="w-full flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="Lý do" value={newDeduction.reason} onChange={(e) => setNewDeduction({ ...newDeduction, reason: e.target.value })} />
+                                                <button className="w-full sm:w-auto px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm" onClick={handleAddDeduction}>Thêm</button>
                                             </div>
                                         </div>
                                     </div>
