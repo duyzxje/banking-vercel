@@ -2,26 +2,7 @@ import { CreateFromCommentsPayload, DeleteMultipleResponseItem, ListOrdersRespon
 
 // Avoid creating Supabase client at module import time to prevent HMR issues.
 
-// Helpers to map DB rows to app Order/OrderItem types
-type OrderRow = {
-    id: number;
-    customer_username: string;
-    total_amount: number;
-    status: OrderStatus;
-    live_date?: string | null;
-    created_at?: string | null;
-};
-
-type OrderItemRow = {
-    id: number;
-    order_id: number;
-    product_name?: string | null;
-    content?: string | null;
-    quantity: number;
-    unit_price?: number | null;
-    price?: number | null;
-    created_at?: string | null;
-};
+// Removed unused row types (OrderRow, OrderItemRow) to satisfy lint
 
 // Removed unused functions
 

@@ -19,31 +19,17 @@ interface SalaryRecord {
 }
 
 interface DailySalaryRecord {
+    _id?: string;
     date: string;
     checkInTime: string;
     checkOutTime: string;
     workHours: number;
     dailySalary: number;
+    hourlyRate?: number;
     status: string;
 }
 
-interface SalaryHistoryRecord {
-    _id: string;
-    userId: {
-        _id: string;
-        name: string;
-        username: string;
-        email: string;
-    };
-    hourlyRate: number;
-    month: number;
-    year: number;
-    totalHours: number;
-    totalSalary: number;
-    dailyRecords: DailySalaryRecord[];
-    createdAt: string;
-    updatedAt: string;
-}
+// Removed unused SalaryHistoryRecord to satisfy lint
 
 interface SalaryManagementProps {
     isAdmin: boolean;
@@ -296,23 +282,24 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
             });
             console.log('[HourlyRate] Response:', response.status, response.statusText);
             if (response.ok) {
-                let json: any = null;
+                let json: unknown = null;
                 try {
                     json = await response.json();
                 } catch { }
-                if (json) {
+                if (json && typeof json === 'object') {
                     console.log('[HourlyRate] Response JSON:', json);
-                    const updated = json?.data?.updatedDailyRecord || json?.updatedDailyRecord;
-                    const summary = json?.data?.summary || json?.summary;
+                    const dataObj = (json as { data?: unknown; updatedDailyRecord?: DailySalaryRecord; summary?: { totalSalary: number; totalBonus: number; totalDeduction: number; finalSalary: number } });
+                    const nested = (dataObj.data as { updatedDailyRecord?: DailySalaryRecord; summary?: { totalSalary: number; totalBonus: number; totalDeduction: number; finalSalary: number } }) || {};
+                    const updated = dataObj.updatedDailyRecord || nested.updatedDailyRecord;
+                    const summary = dataObj.summary || nested.summary;
                     if (updated) {
                         setDetailedSalary(prev => {
                             if (!prev) return prev;
                             const newDaily = prev.dailyRecords.map(r => (
-                                ((r as any)._id && (r as any)._id === updated._id) || r.date === updated.date ? {
+                                ((r._id && updated._id && r._id === updated._id) || r.date === updated.date) ? {
                                     ...r,
                                     dailySalary: updated.dailySalary,
-                                    // backend now returns per-day hourlyRate
-                                    hourlyRate: (updated as any).hourlyRate ?? (r as any).hourlyRate,
+                                    hourlyRate: updated.hourlyRate ?? r.hourlyRate,
                                     checkInTime: updated.checkInTime ?? r.checkInTime,
                                     checkOutTime: updated.checkOutTime ?? r.checkOutTime,
                                     workHours: updated.workHours ?? r.workHours,
@@ -662,29 +649,29 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                 ) : salaryRecords.length > 0 ? (
                     <>
                         {/* Mobile: Cards */}
-                        <div className="block md:hidden p-4 space-y-3">
+                        <div className="block md:hidden p-4 space-y-4">
                             {salaryRecords.map((record) => (
-                                <div key={getUserId(record.userId)} className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
+                                <div key={getUserId(record.userId)} className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
-                                            <div className="text-sm font-semibold text-gray-900">{getEmployeeName(record)}</div>
-                                            <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-700">
+                                            <div className="text-base font-semibold text-gray-900">{getEmployeeName(record)}</div>
+                                            <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
                                                 <div>
-                                                    <div className="text-gray-500">Lương/giờ</div>
-                                                    <div className="font-medium">{formatCurrency(record.hourlyRate)}</div>
+                                                    <div className="text-gray-500 mb-0.5">Lương/giờ</div>
+                                                    <div className="font-medium leading-5">{formatCurrency(record.hourlyRate)}</div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-gray-500">Tổng giờ</div>
-                                                    <div className="font-medium">{formatHours(record.totalHours)}</div>
+                                                    <div className="text-gray-500 mb-0.5">Tổng giờ</div>
+                                                    <div className="font-medium leading-5">{formatHours(record.totalHours)}</div>
                                                 </div>
                                                 <div className="col-span-2">
-                                                    <div className="text-gray-500">Tổng lương</div>
-                                                    <div className="font-semibold text-gray-900">{formatCurrency(record.totalSalary)}</div>
+                                                    <div className="text-gray-500 mb-0.5">Tổng lương</div>
+                                                    <div className="font-semibold text-gray-900 leading-5">{formatCurrency(record.totalSalary)}</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                    <div className="mt-4 grid grid-cols-3 gap-2">
                                         <button
                                             onClick={() => handleCalculateSalary(getUserId(record.userId), selectedMonth.getMonth() + 1, selectedMonth.getFullYear())}
                                             disabled={calculateLoading}
@@ -993,7 +980,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                             {(detailedSalary.dailyRecords || []).map((r) => {
                                                 const key = r.date;
                                                 const editedDailySalary = editDailyMap[key] ?? r.dailySalary;
-                                                const editedHourlyRate = editHourlyRateMap[key] ?? (r as any).hourlyRate ?? detailedSalary.hourlyRate ?? 0;
+                                                const editedHourlyRate = editHourlyRateMap[key] ?? r.hourlyRate ?? detailedSalary.hourlyRate ?? 0;
                                                 return (
                                                     <div key={key} className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
                                                         <div className="flex items-center justify-between mb-2">
@@ -1066,7 +1053,7 @@ const SalaryManagement: React.FC<SalaryManagementProps> = ({ isAdmin }) => {
                                                     {(detailedSalary.dailyRecords || []).map((r) => {
                                                         const key = r.date;
                                                         const editedDailySalary = editDailyMap[key] ?? r.dailySalary;
-                                                        const editedHourlyRate = editHourlyRateMap[key] ?? (r as any).hourlyRate ?? detailedSalary.hourlyRate ?? 0;
+                                                        const editedHourlyRate = editHourlyRateMap[key] ?? r.hourlyRate ?? detailedSalary.hourlyRate ?? 0;
                                                         return (
                                                             <tr key={key} className="hover:bg-gray-50">
                                                                 <td className="px-6 py-3 text-sm">{new Date(r.date).toLocaleDateString('vi-VN', { timeZone: 'UTC' })}</td>
