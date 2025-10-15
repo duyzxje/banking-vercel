@@ -2,7 +2,7 @@
     "name": "Giorlin",
     "short_name": "Giorlin",
     "description": "Ứng dụng quản lý thời gian làm việc, giao dịch ngân hàng và thông báo",
-    "start_url": "/",
+    "start_url": "/?src=pwa",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#2563eb",
