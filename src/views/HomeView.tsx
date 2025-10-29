@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarClock, Clock, CreditCard, Settings, ShoppingBag } from 'lucide-react';
+import { CalendarClock, Clock, CreditCard, Settings, ShoppingBag, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -48,6 +48,13 @@ export default function HomeView() {
                     >
                         <ShoppingBag className="h-8 w-8 mb-2 text-emerald-600 mx-auto" />
                         <p className="text-sm font-medium">Đơn hàng</p>
+                    </button>
+                    <button
+                        onClick={() => router.push('/customers')}
+                        className="p-4 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg transition-all duration-200 border border-orange-200 hover:border-orange-300 hover:shadow-md"
+                    >
+                        <Users className="h-8 w-8 mb-2 text-orange-600 mx-auto" />
+                        <p className="text-sm font-medium">Khách hàng</p>
                     </button>
                     <button
                         onClick={() => router.push('/attendance')}

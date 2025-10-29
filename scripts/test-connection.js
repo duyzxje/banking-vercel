@@ -98,16 +98,16 @@ const Transaction = mongoose.model('Transaction', transactionSchema);
 async function testConnection() {
   try {
     console.log('🔄 Đang kết nối tới MongoDB Atlas...');
-    
+
     await mongoose.connect(process.env.MONGODB_URI, {
       bufferCommands: false,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    
+
     console.log('✅ Kết nối MongoDB Atlas thành công!');
-    
+
     // Test tạo một giao dịch mẫu
     const sampleTransaction = new Transaction({
       taiKhoanNhan: "0916496246 - Tài khoản thanh toán",
@@ -126,25 +126,25 @@ async function testConnection() {
       historyId: "607057",
       processedAt: new Date("2025-08-08T20:02:52.163Z")
     });
-    
+
     // Kiểm tra xem giao dịch đã tồn tại chưa
     const existingTransaction = await Transaction.findOne({ maGiaoDich: "298419059" });
-    
+
     if (!existingTransaction) {
       await sampleTransaction.save();
       console.log('✅ Đã tạo giao dịch mẫu thành công!');
     } else {
       console.log('ℹ️  Giao dịch mẫu đã tồn tại');
     }
-    
+
     // Lấy danh sách giao dịch
     const transactions = await Transaction.find().limit(5);
     console.log(`📊 Tìm thấy ${transactions.length} giao dịch trong database`);
-    
+
     transactions.forEach((tx, index) => {
       console.log(`${index + 1}. ${tx.tenNguoiChuyen} - ${tx.soTien} - ${tx.maGiaoDich}`);
     });
-    
+
   } catch (error) {
     console.error('❌ Lỗi kết nối:', error.message);
   } finally {

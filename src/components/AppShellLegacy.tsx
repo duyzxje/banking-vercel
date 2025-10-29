@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, CalendarClock, CreditCard, Home, Menu, Settings, LogOut } from 'lucide-react';
+import { Bell, CalendarClock, CreditCard, Home, Menu, Settings, LogOut, Users } from 'lucide-react';
 import NotificationPopup from './NotificationPopup';
 
 interface AppShellLegacyProps {
@@ -109,6 +109,7 @@ export default function AppShellLegacy({ children }: AppShellLegacyProps) {
                         {item('/', 'Trang chủ', <Home className="h-5 w-5" />, pathname === '/', () => router.push('/'))}
                         {item('/transactions', 'Giao dịch', <CreditCard className="h-5 w-5" />, pathname === '/transactions', () => router.push('/transactions'))}
                         {item('/orders', 'Đơn hàng', <CreditCard className="h-5 w-5" />, pathname === '/orders', () => router.push('/orders'))}
+                        {item('/customers', 'Khách hàng', <Users className="h-5 w-5" />, pathname === '/customers', () => router.push('/customers'))}
                         {item('/attendance', 'Chấm công', <Home className="h-5 w-5" />, pathname === '/attendance', () => router.push('/attendance'))}
                         {item('/shifts', 'Đăng ký ca', <CalendarClock className="h-5 w-5" />, pathname === '/shifts', () => router.push('/shifts'))}
                         {userRole === 'admin' && item('/admin', 'Quản lý', <Settings className="h-5 w-5" />, pathname === '/admin', () => router.push('/admin'))}
