@@ -45,6 +45,48 @@ export interface DeleteMultipleResponseItem {
     message?: string;
 }
 
+export interface CreateFromPrintedHistoryPayload {
+    startTime: string; // ISO datetime string
+    endTime: string; // ISO datetime string
+}
+
+export interface CreatedOrderResult {
+    orderId: number;
+    username: string;
+    itemsAdded: number;
+    total: number;
+    liveDate: string;
+}
+
+export interface UpdatedOrderResult {
+    orderId: number;
+    username: string;
+    itemsAdded: number;
+    oldTotal: number;
+    newTotal: number;
+}
+
+export interface OrderCreationSummary {
+    totalOrders: number;
+    totalItems: number;
+    totalAmount: number;
+}
+
+export interface OrderCreationResponse {
+    success: boolean;
+    data?: {
+        created: CreatedOrderResult[];
+        updated: UpdatedOrderResult[];
+        summary: OrderCreationSummary;
+    };
+    message?: string;
+    conflictOrder?: {
+        orderId: number;
+        username: string;
+        usernameConflict: boolean;
+    };
+}
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
     chua_rep: 'Chưa rep',
     giu_don: 'Giữ đơn',
@@ -62,5 +104,36 @@ export const ORDER_STATUS_SORT_WEIGHT: Record<OrderStatus, number> = {
     warning: 5,
     hoan_thanh: 6
 };
+
+export interface PreviewOrderItem {
+    content?: string;
+    unit_price: number;
+    quantity: number;
+    line_total: number;
+}
+export interface PreviewOrder {
+    username: string;
+    liveDate: string;
+    items: PreviewOrderItem[];
+    total: number;
+}
+export interface PreviewOrdersResponseSummary {
+    totalOrders: number;
+    totalItems: number;
+    totalAmount: number;
+}
+export interface PreviewOrdersResponse {
+    success: boolean;
+    data?: {
+        orders: PreviewOrder[];
+        summary: PreviewOrdersResponseSummary;
+    };
+    message?: string;
+    conflictOrder?: {
+        orderId: number;
+        username: string;
+        usernameConflict: boolean;
+    };
+}
 
 
