@@ -1,5 +1,5 @@
 // Service Worker for Push Notifications
-const CACHE_NAME = 'worktime-app-v4'; // Tăng version để clear cache cũ và tránh xung đột
+const CACHE_NAME = 'worktime-app-v5'; // Tăng version để clear cache cũ và tránh xung đột
 const urlsToCache = [
     // Không cache '/' để tránh giữ HTML cũ sau mỗi lần deploy
     '/manifest.webmanifest'
@@ -65,6 +65,10 @@ self.addEventListener('fetch', (event) => {
         reqUrl.pathname.includes('/chunks/') ||
         reqUrl.pathname.includes('.hot-update.')) {
         return; // Let the network handle it directly - luôn lấy bản mới nhất
+    }
+    // Never cache API requests to always get fresh data
+    if (reqUrl.pathname.startsWith('/api/')) {
+        return; // Let the network handle it directly - luôn lấy dữ liệu API mới nhất
     }
 
     // Với tài liệu HTML (document), sử dụng chiến lược network-first để luôn nhận HTML mới nhất
