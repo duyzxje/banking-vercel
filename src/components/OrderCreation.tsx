@@ -48,12 +48,29 @@ export default function OrderCreation() {
         return { start: toInputLocal(start), end: toInputLocal(end) };
     }
 
-    // Cập nhật mặc định range khi mount
+    // Load time range from localStorage hoặc dùng default
     useEffect(() => {
-        const { start, end } = getDefaultRange();
-        setStartTime(start);
-        setEndTime(end);
+        if (typeof window === 'undefined') return;
+
+        const savedStartTime = localStorage.getItem('orderCreation_startTime');
+        const savedEndTime = localStorage.getItem('orderCreation_endTime');
+
+        if (savedStartTime && savedEndTime) {
+            setStartTime(savedStartTime);
+            setEndTime(savedEndTime);
+        } else {
+            const { start, end } = getDefaultRange();
+            setStartTime(start);
+            setEndTime(end);
+        }
     }, []);
+
+    // Lưu time range vào localStorage mỗi khi thay đổi
+    useEffect(() => {
+        if (typeof window === 'undefined' || !startTime || !endTime) return;
+        localStorage.setItem('orderCreation_startTime', startTime);
+        localStorage.setItem('orderCreation_endTime', endTime);
+    }, [startTime, endTime]);
 
     // Tách hàm fetchPreview để có thể gọi lại
     const fetchPreview = useCallback(async () => {
@@ -108,11 +125,15 @@ export default function OrderCreation() {
     }, [startTime, endTime]);
 
     // Check xem các đơn trong preview đã tồn tại trong hệ thống chưa
+    // Logic: Nếu đơn xuất hiện trong preview VÀ đã tồn tại → hiển thị "Tạo lại"
+    // Nếu đơn xuất hiện trong preview nhưng chưa tồn tại → hiển thị "Tạo đơn"
+    // Nếu đơn KHÔNG xuất hiện trong preview nhưng đã tồn tại → không hiển thị (không có printed mới)
     const checkExistingOrders = async (previewOrders: PreviewOrder[]) => {
         try {
             const existingMap: Record<string, boolean> = {};
 
             // Check từng đơn trong preview bằng API from-comments
+            // Chỉ check các đơn có trong preview (vì nếu không có trong preview = không có printed mới)
             for (const previewOrder of previewOrders) {
                 const liveDate = previewOrder.liveDate ? new Date(previewOrder.liveDate).toISOString().split('T')[0] : '';
                 if (!liveDate) continue;
@@ -126,6 +147,7 @@ export default function OrderCreation() {
                     });
 
                     // Nếu API trả về success và có order_id, nghĩa là đơn đã tồn tại
+                    // Và vì đơn này xuất hiện trong preview → có printed mới → hiển thị "Tạo lại"
                     if (result && result.success && result.order_id) {
                         existingMap[`${previewOrder.username}||${previewOrder.liveDate}`] = true;
                     }
@@ -143,7 +165,7 @@ export default function OrderCreation() {
                         // Lỗi khác ngoài "không tìm thấy" - có thể là network error, 500, etc
                         console.warn(`Error checking order for ${previewOrder.username}:`, e);
                     }
-                    // Nếu không tìm thấy đơn (error hoặc không có order_id), không thêm vào existingMap (đơn mới)
+                    // Nếu không tìm thấy đơn → đơn mới → không thêm vào existingMap
                 }
             }
 
@@ -198,12 +220,17 @@ export default function OrderCreation() {
         }
     }
 
-    // Tạo tất cả các đơn chưa tạo
+    // Tạo tất cả các đơn chưa tạo hoặc có thể tạo lại
+    // Logic: Chỉ tạo các đơn chưa được tạo thành công (orderCreatedMap[id] !== true)
     async function handleCreateAll() {
         setCreatingAll(true);
         for (const order of ordersPreview) {
             const id = `${order.username}||${order.liveDate}`;
-            if (!orderCreatedMap[id] || orderCreatedMap[id] === 'loading') {
+            // Chỉ tạo nếu:
+            // - Chưa được set thành true (chưa tạo thành công)
+            // - Không đang trong trạng thái loading
+            // - Có trong preview (có printed mới hoặc là đơn mới)
+            if (orderCreatedMap[id] !== true && orderCreatedMap[id] !== 'loading') {
                 await handleCreateSingleOrder(order);
             }
         }
@@ -257,12 +284,18 @@ export default function OrderCreation() {
                 <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
                     <button
                         onClick={handleCreateAll}
-                        disabled={creatingAll || ordersPreview.length === 0 || Object.values(orderCreatedMap).filter(status => !status || status === 'loading').length === 0}
+                        disabled={creatingAll || ordersPreview.length === 0 || ordersPreview.every(order => {
+                            const id = `${order.username}||${order.liveDate}`;
+                            return orderCreatedMap[id] === true || orderCreatedMap[id] === 'loading';
+                        })}
                         className="px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md w-full md:w-auto text-base"
                     >
                         {creatingAll
                             ? 'Đang tạo tất cả...'
-                            : `Tạo tất cả đơn (${Object.values(orderCreatedMap).filter(status => !status || status === 'loading').length}/${ordersPreview.length})`}
+                            : `Tạo tất cả đơn (${ordersPreview.filter(order => {
+                                const id = `${order.username}||${order.liveDate}`;
+                                return orderCreatedMap[id] !== true && orderCreatedMap[id] !== 'loading';
+                            }).length}/${ordersPreview.length})`}
                     </button>
                     <span className="hidden md:inline text-xs text-gray-500">Tổng: {ordersPreview.length} đơn</span>
                 </div>

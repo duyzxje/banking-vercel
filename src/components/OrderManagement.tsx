@@ -31,15 +31,42 @@ export default function OrderManagement() {
         return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
     };
 
-    const now = new Date();
-    const nowTruncated = new Date(now);
-    nowTruncated.setSeconds(0, 0);
-    const yesterdayStart = new Date(now);
-    yesterdayStart.setDate(now.getDate() - 1);
-    yesterdayStart.setHours(0, 0, 0, 0);
+    // Helper: default date range
+    const getDefaultRange = () => {
+        const now = new Date();
+        const nowTruncated = new Date(now);
+        nowTruncated.setSeconds(0, 0);
+        const yesterdayStart = new Date(now);
+        yesterdayStart.setDate(now.getDate() - 1);
+        yesterdayStart.setHours(0, 0, 0, 0);
+        return {
+            start: toInputLocal(yesterdayStart),
+            end: toInputLocal(nowTruncated)
+        };
+    };
 
-    const [startInput, setStartInput] = useState<string>(() => toInputLocal(yesterdayStart));
-    const [endInput, setEndInput] = useState<string>(() => toInputLocal(nowTruncated));
+    // Load time range from localStorage hoặc dùng default
+    const [startInput, setStartInput] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('orderManagement_startInput');
+            if (saved) return saved;
+        }
+        return getDefaultRange().start;
+    });
+    const [endInput, setEndInput] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('orderManagement_endInput');
+            if (saved) return saved;
+        }
+        return getDefaultRange().end;
+    });
+
+    // Lưu time range vào localStorage mỗi khi thay đổi
+    useEffect(() => {
+        if (typeof window === 'undefined' || !startInput || !endInput) return;
+        localStorage.setItem('orderManagement_startInput', startInput);
+        localStorage.setItem('orderManagement_endInput', endInput);
+    }, [startInput, endInput]);
     // Modal state
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     type OrderItem = { content?: string; product_name?: string; quantity?: number; unit_price?: number; price?: number };
