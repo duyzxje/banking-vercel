@@ -3,20 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { OrderService } from './OrderService';
 import {
-    OrderCreationResponse,
     PreviewOrder,
-    PreviewOrderItem,
     PreviewOrdersResponseSummary
 } from './OrderTypes';
-import { Plus, Calendar, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Calendar, AlertCircle, X } from 'lucide-react';
 
 export default function OrderCreation() {
     const [startTime, setStartTime] = useState<string>("");
     const [endTime, setEndTime] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false);
-    const [result, setResult] = useState<OrderCreationResponse | null>(null);
     const [error, setError] = useState<string>("");
-    const [showResultModal, setShowResultModal] = useState<boolean>(false);
     const [ordersPreview, setOrdersPreview] = useState<PreviewOrder[]>([]);
     const [summaryPreview, setSummaryPreview] = useState<PreviewOrdersResponseSummary | undefined>();
     const [orderCreatedMap, setOrderCreatedMap] = useState<Record<string, boolean | "loading">>({});
@@ -134,11 +129,11 @@ export default function OrderCreation() {
                     if (result && result.success && result.order_id) {
                         existingMap[`${previewOrder.username}||${previewOrder.liveDate}`] = true;
                     }
-                } catch (e: any) {
+                } catch (e: unknown) {
                     // API có thể throw error nếu không tìm thấy đơn
                     // Đây là behavior bình thường khi đơn chưa tồn tại, không cần log warning
                     // Chỉ log nếu là lỗi khác (network, 500, etc) - không phải lỗi "không tìm thấy"
-                    const errorMessage = e?.message || e?.toString() || '';
+                    const errorMessage = (e instanceof Error ? e.message : String(e)) || '';
                     const isNotFoundError = errorMessage.includes('404') ||
                         errorMessage.includes('không tìm thấy') ||
                         errorMessage.includes('not found') ||
@@ -197,7 +192,7 @@ export default function OrderCreation() {
                 setOrderCreatedMap(prev => ({ ...prev, [id]: false }));
                 setError(resp.message || 'Tạo đơn thất bại!');
             }
-        } catch (e) {
+        } catch (_e) {
             setOrderCreatedMap(prev => ({ ...prev, [id]: false }));
             setError('Tạo đơn thất bại!');
         }
@@ -214,12 +209,6 @@ export default function OrderCreation() {
         }
         setCreatingAll(false);
     }
-
-    const closeResultModal = () => {
-        setShowResultModal(false);
-        setResult(null);
-        setError("");
-    };
 
     return (
         <div className="space-y-6">
@@ -388,7 +377,7 @@ export default function OrderCreation() {
                 </div>
             </div>
             {/* Error Display */}
-            {error && !showResultModal && (
+            {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />

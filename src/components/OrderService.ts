@@ -1,4 +1,4 @@
-import { CreateFromCommentsPayload, CreateFromPrintedHistoryPayload, CreateOrderPayload, CreateOrderResponse, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderCreationResponse, OrderItem, OrderStatus, PreviewOrdersResponse, PreviewOrder, PreviewOrderItem } from './OrderTypes';
+import { CreateFromCommentsPayload, CreateFromPrintedHistoryPayload, CreateOrderPayload, CreateOrderResponse, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderCreationResponse, OrderItem, OrderStatus, PreviewOrdersResponse } from './OrderTypes';
 
 // Avoid creating Supabase client at module import time to prevent HMR issues.
 
