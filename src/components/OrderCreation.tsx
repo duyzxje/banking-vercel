@@ -20,6 +20,7 @@ export default function OrderCreation() {
     const [ordersPreview, setOrdersPreview] = useState<PreviewOrder[]>([]);
     const [summaryPreview, setSummaryPreview] = useState<PreviewOrdersResponseSummary | undefined>();
     const [orderCreatedMap, setOrderCreatedMap] = useState<Record<string, boolean | "loading">>({});
+    const [existingOrdersMap, setExistingOrdersMap] = useState<Record<string, boolean>>({}); // Track đơn đã tồn tại
     const [fetchingPreview, setFetchingPreview] = useState(false);
     const [creatingAll, setCreatingAll] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<PreviewOrder | null>(null);
@@ -72,12 +73,31 @@ export default function OrderCreation() {
                 endTime: toISOString(endTime)
             });
             if (resp.success && resp.data) {
-                setOrdersPreview(resp.data.orders || []);
+                const previewOrders = resp.data.orders || [];
+                setOrdersPreview(previewOrders);
                 setSummaryPreview(resp.data.summary);
-                // Map, nhưng key là username/NgàyLive (nếu cần unique hơn có thể `${username}-${liveDate}`)
-                const mapInit: Record<string, boolean> = {};
-                (resp.data.orders || []).forEach(o => { mapInit[`${o.username}||${o.liveDate}`] = false; });
-                setOrderCreatedMap(mapInit);
+
+                // Merge state thay vì reset hoàn toàn - giữ lại các đơn đã tạo thành công
+                setOrderCreatedMap(prev => {
+                    const newMap = { ...prev };
+                    previewOrders.forEach(o => {
+                        const id = `${o.username}||${o.liveDate}`;
+                        // Chỉ set false nếu chưa có trong map hoặc chưa được set true
+                        if (newMap[id] !== true && newMap[id] !== 'loading') {
+                            newMap[id] = false;
+                        }
+                    });
+                    // Xóa các key không còn trong preview
+                    Object.keys(newMap).forEach(key => {
+                        if (!previewOrders.some(o => `${o.username}||${o.liveDate}` === key)) {
+                            delete newMap[key];
+                        }
+                    });
+                    return newMap;
+                });
+
+                // Check các đơn đã tồn tại trong hệ thống
+                await checkExistingOrders(previewOrders);
             } else {
                 setError(resp.message || 'Không lấy được danh sách đơn có thể tạo.');
                 setSummaryPreview(undefined);
@@ -91,6 +111,52 @@ export default function OrderCreation() {
             setFetchingPreview(false);
         }
     }, [startTime, endTime]);
+
+    // Check xem các đơn trong preview đã tồn tại trong hệ thống chưa
+    const checkExistingOrders = async (previewOrders: PreviewOrder[]) => {
+        try {
+            const existingMap: Record<string, boolean> = {};
+
+            // Check từng đơn trong preview bằng API from-comments
+            for (const previewOrder of previewOrders) {
+                const liveDate = previewOrder.liveDate ? new Date(previewOrder.liveDate).toISOString().split('T')[0] : '';
+                if (!liveDate) continue;
+
+                try {
+                    // Sử dụng API from-comments để lookup đơn theo username và liveDate
+                    // API này sẽ trả về order_id nếu đơn đã tồn tại
+                    const result = await OrderService.createFromComments({
+                        username: previewOrder.username,
+                        liveDate: previewOrder.liveDate
+                    });
+
+                    // Nếu API trả về success và có order_id, nghĩa là đơn đã tồn tại
+                    if (result && result.success && result.order_id) {
+                        existingMap[`${previewOrder.username}||${previewOrder.liveDate}`] = true;
+                    }
+                } catch (e: any) {
+                    // API có thể throw error nếu không tìm thấy đơn
+                    // Đây là behavior bình thường khi đơn chưa tồn tại, không cần log warning
+                    // Chỉ log nếu là lỗi khác (network, 500, etc) - không phải lỗi "không tìm thấy"
+                    const errorMessage = e?.message || e?.toString() || '';
+                    const isNotFoundError = errorMessage.includes('404') ||
+                        errorMessage.includes('không tìm thấy') ||
+                        errorMessage.includes('not found') ||
+                        errorMessage.includes('Not found');
+
+                    if (!isNotFoundError) {
+                        // Lỗi khác ngoài "không tìm thấy" - có thể là network error, 500, etc
+                        console.warn(`Error checking order for ${previewOrder.username}:`, e);
+                    }
+                    // Nếu không tìm thấy đơn (error hoặc không có order_id), không thêm vào existingMap (đơn mới)
+                }
+            }
+
+            setExistingOrdersMap(existingMap);
+        } catch (e) {
+            console.error('Error checking existing orders:', e);
+        }
+    };
 
     // Fetch preview mỗi lần range đổi
     useEffect(() => {
@@ -119,6 +185,12 @@ export default function OrderCreation() {
             const resp = await OrderService.createOrder(payload);
             if (resp.success) {
                 setOrderCreatedMap(prev => ({ ...prev, [id]: true }));
+                // Xóa khỏi existingOrdersMap vì đã tạo thành công
+                setExistingOrdersMap(prev => {
+                    const newMap = { ...prev };
+                    delete newMap[id];
+                    return newMap;
+                });
                 // Refresh preview để cập nhật danh sách đơn (đơn đã tạo sẽ không còn trong preview)
                 await fetchPreview();
             } else {
@@ -222,6 +294,24 @@ export default function OrderCreation() {
                         <tbody>
                             {ordersPreview.map(order => {
                                 const id = `${order.username}||${order.liveDate}`;
+                                const isCreated = orderCreatedMap[id] === true;
+                                const isLoading = orderCreatedMap[id] === 'loading';
+                                const isExisting = existingOrdersMap[id] === true;
+                                const buttonText = isCreated
+                                    ? 'Đã tạo'
+                                    : isLoading
+                                        ? 'Đang tạo...'
+                                        : isExisting
+                                            ? 'Tạo lại'
+                                            : 'Tạo đơn';
+                                const buttonClass = isCreated
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : isLoading
+                                        ? 'bg-blue-600 animate-pulse'
+                                        : isExisting
+                                            ? 'bg-orange-600 hover:bg-orange-700'
+                                            : 'bg-blue-600 hover:bg-blue-700';
+
                                 return (
                                     <tr key={id}>
                                         <td className="px-3 py-2">{order.username}</td>
@@ -230,11 +320,12 @@ export default function OrderCreation() {
                                         <td className="px-3 py-2 font-semibold">{order.total.toLocaleString('vi-VN')}</td>
                                         <td className="px-3 py-2">
                                             <button
-                                                disabled={orderCreatedMap[id] === true || orderCreatedMap[id] === 'loading'}
+                                                disabled={isCreated || isLoading}
                                                 onClick={() => handleCreateSingleOrder(order)}
-                                                className={`px-3 py-1 rounded text-white text-xs  ${orderCreatedMap[id] === true ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} ${orderCreatedMap[id] === 'loading' ? 'animate-pulse' : ''}`}
+                                                className={`px-3 py-1 rounded text-white text-xs ${buttonClass}`}
+                                                title={isExisting ? 'Đơn đã tồn tại, bấm để tạo lại với items mới' : ''}
                                             >
-                                                {orderCreatedMap[id] === true ? 'Đã tạo' : orderCreatedMap[id] === 'loading' ? 'Đang tạo...' : 'Tạo đơn'}
+                                                {buttonText}
                                             </button>
                                         </td>
                                     </tr>
@@ -250,6 +341,24 @@ export default function OrderCreation() {
                     <div className="space-y-3">
                         {ordersPreview.map(order => {
                             const id = `${order.username}||${order.liveDate}`;
+                            const isCreated = orderCreatedMap[id] === true;
+                            const isLoading = orderCreatedMap[id] === 'loading';
+                            const isExisting = existingOrdersMap[id] === true;
+                            const buttonText = isCreated
+                                ? 'Đã tạo'
+                                : isLoading
+                                    ? 'Đang tạo...'
+                                    : isExisting
+                                        ? 'Tạo lại'
+                                        : 'Tạo đơn';
+                            const buttonClass = isCreated
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : isLoading
+                                    ? 'bg-blue-600 animate-pulse'
+                                    : isExisting
+                                        ? 'bg-orange-600 hover:bg-orange-700'
+                                        : 'bg-blue-600 hover:bg-blue-700';
+
                             return (
                                 <div key={id}
                                     className="rounded-xl shadow-md border border-gray-200 bg-gray-50 p-4 flex flex-col gap-2 cursor-pointer"
@@ -264,15 +373,12 @@ export default function OrderCreation() {
                                         <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">Tổng: {order.total.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <button
-                                        disabled={orderCreatedMap[id] === true || orderCreatedMap[id] === 'loading'}
+                                        disabled={isCreated || isLoading}
                                         onClick={e => { e.stopPropagation(); handleCreateSingleOrder(order); }}
-                                        className={
-                                            'w-full mt-2 px-0 py-2 rounded text-white text-base font-bold transition ' +
-                                            (orderCreatedMap[id] === true ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700') +
-                                            (orderCreatedMap[id] === 'loading' ? ' animate-pulse' : '')
-                                        }
+                                        className={`w-full mt-2 px-0 py-2 rounded text-white text-base font-bold transition ${buttonClass}`}
+                                        title={isExisting ? 'Đơn đã tồn tại, bấm để tạo lại với items mới' : ''}
                                     >
-                                        {orderCreatedMap[id] === true ? 'Đã tạo' : orderCreatedMap[id] === 'loading' ? 'Đang tạo...' : 'Tạo đơn'}
+                                        {buttonText}
                                     </button>
                                 </div>
                             );
@@ -340,13 +446,37 @@ export default function OrderCreation() {
                                 </div>
                             )}
                         </div>
-                        <button
-                            disabled={orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === true || orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === 'loading'}
-                            onClick={() => handleCreateSingleOrder(selectedOrder)}
-                            className={`mt-3 w-full px-0 py-2 rounded text-white text-base font-bold transition ${orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === true ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} ${orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === 'loading' ? ' animate-pulse' : ''}`}
-                        >
-                            {orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === true ? 'Đã tạo' : orderCreatedMap[`${selectedOrder.username}||${selectedOrder.liveDate}`] === 'loading' ? 'Đang tạo...' : 'Tạo đơn'}
-                        </button>
+                        {(() => {
+                            const id = `${selectedOrder.username}||${selectedOrder.liveDate}`;
+                            const isCreated = orderCreatedMap[id] === true;
+                            const isLoading = orderCreatedMap[id] === 'loading';
+                            const isExisting = existingOrdersMap[id] === true;
+                            const buttonText = isCreated
+                                ? 'Đã tạo'
+                                : isLoading
+                                    ? 'Đang tạo...'
+                                    : isExisting
+                                        ? 'Tạo lại'
+                                        : 'Tạo đơn';
+                            const buttonClass = isCreated
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : isLoading
+                                    ? 'bg-blue-600 animate-pulse'
+                                    : isExisting
+                                        ? 'bg-orange-600 hover:bg-orange-700'
+                                        : 'bg-blue-600 hover:bg-blue-700';
+
+                            return (
+                                <button
+                                    disabled={isCreated || isLoading}
+                                    onClick={() => handleCreateSingleOrder(selectedOrder)}
+                                    className={`mt-3 w-full px-0 py-2 rounded text-white text-base font-bold transition ${buttonClass}`}
+                                    title={isExisting ? 'Đơn đã tồn tại, bấm để tạo lại với items mới' : ''}
+                                >
+                                    {buttonText}
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
