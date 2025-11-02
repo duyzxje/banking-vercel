@@ -13,6 +13,7 @@ export default function OrderManagement() {
     const [activeTab, setActiveTab] = useState<TabType>('manage');
     const [orders, setOrders] = useState<Order[]>([]);
     const [statusCounts, setStatusCounts] = useState<StatusCountEntry[]>([]);
+    const [totalRevenue, setTotalRevenue] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(false);
     // pagination removed on UI
     const limit = DEFAULT_LIMIT;
@@ -66,12 +67,14 @@ export default function OrderManagement() {
                 search,
                 status: statusFilter
             });
-            interface ListOrdersResponse { data?: Order[]; statusCounts?: StatusCountEntry[] }
+            interface ListOrdersResponse { data?: Order[]; statusCounts?: StatusCountEntry[]; totalRevenue?: number }
             const resp = data as ListOrdersResponse;
             const list = Array.isArray(resp?.data) ? resp.data : [];
             const counts = Array.isArray(resp?.statusCounts) ? resp.statusCounts : [];
+            const revenue = typeof resp?.totalRevenue === 'number' ? resp.totalRevenue : 0;
             setOrders(list);
             setStatusCounts(counts);
+            setTotalRevenue(revenue);
         } catch (err) {
             console.error(err);
         } finally {
@@ -160,15 +163,6 @@ export default function OrderManagement() {
                 <div className="border-b border-gray-200 mb-4">
                     <nav className="flex -mb-px space-x-4" aria-label="Tabs">
                         <button
-                            onClick={() => setActiveTab('create')}
-                            className={`${activeTab === 'create'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
-                        >
-                            Tạo đơn hàng
-                        </button>
-                        <button
                             onClick={() => setActiveTab('manage')}
                             className={`${activeTab === 'manage'
                                 ? 'border-blue-500 text-blue-600'
@@ -177,6 +171,16 @@ export default function OrderManagement() {
                         >
                             Quản lí đơn hàng
                         </button>
+                        <button
+                            onClick={() => setActiveTab('create')}
+                            className={`${activeTab === 'create'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors`}
+                        >
+                            Tạo đơn hàng
+                        </button>
+
                     </nav>
                 </div>
             </div>
@@ -228,6 +232,25 @@ export default function OrderManagement() {
                                 >
                                     Áp dụng lọc
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Total Revenue */}
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border border-green-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-semibold text-lg text-gray-800 mb-1">Tổng doanh thu</h3>
+                                <p className="text-sm text-gray-600">
+                                    Theo khoảng thời gian đã chọn
+                                    {statusFilter && ` · Trạng thái: ${ORDER_STATUS_LABELS[statusFilter as OrderStatus]}`}
+                                    {search && ` · Tìm kiếm: "${search}"`}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-3xl font-bold text-green-700">
+                                    {totalRevenue.toLocaleString('vi-VN')} đ
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-import { CreateFromCommentsPayload, CreateFromPrintedHistoryPayload, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderCreationResponse, OrderItem, OrderStatus, PreviewOrdersResponse, PreviewOrder, PreviewOrderItem } from './OrderTypes';
+import { CreateFromCommentsPayload, CreateFromPrintedHistoryPayload, CreateOrderPayload, CreateOrderResponse, DeleteMultipleResponseItem, ListOrdersResponse, Order, OrderCreationResponse, OrderItem, OrderStatus, PreviewOrdersResponse, PreviewOrder, PreviewOrderItem } from './OrderTypes';
 
 // Avoid creating Supabase client at module import time to prevent HMR issues.
 
@@ -87,6 +87,13 @@ export const OrderService = {
 
     async previewFromPrintedHistory(payload: { startTime: string, endTime: string }): Promise<PreviewOrdersResponse> {
         return httpJson<PreviewOrdersResponse>(`/orders/preview-from-printed`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async createOrder(payload: CreateOrderPayload): Promise<CreateOrderResponse> {
+        return httpJson<CreateOrderResponse>(`/orders`, {
             method: 'POST',
             body: JSON.stringify(payload)
         });

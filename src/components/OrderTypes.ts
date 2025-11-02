@@ -31,6 +31,7 @@ export interface ListOrdersResponse {
     limit?: number;
     total?: number;
     statusCounts: StatusCountEntry[];
+    totalRevenue?: number;
 }
 
 export interface CreateFromCommentsPayload {
@@ -48,6 +49,29 @@ export interface DeleteMultipleResponseItem {
 export interface CreateFromPrintedHistoryPayload {
     startTime: string; // ISO datetime string
     endTime: string; // ISO datetime string
+}
+
+export interface CreateOrderPayload {
+    username: string;
+    liveDate: string; // Format: "2023-10-21" (YYYY-MM-DD)
+    items: Array<{
+        content: string;
+        unit_price: number;
+        quantity: number;
+    }>;
+    note?: string;
+}
+
+export interface CreateOrderResponse {
+    success: boolean;
+    message?: string;
+    data?: {
+        order_id: number;
+        username: string;
+        live_date: string;
+        total_amount: number;
+        items_count: number;
+    };
 }
 
 export interface CreatedOrderResult {
@@ -135,5 +159,3 @@ export interface PreviewOrdersResponse {
         usernameConflict: boolean;
     };
 }
-
-

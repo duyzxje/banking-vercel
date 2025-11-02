@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { OrderService } from './OrderService';
 import {
     OrderCreationResponse,
@@ -59,61 +59,68 @@ export default function OrderCreation() {
         setEndTime(end);
     }, []);
 
-    // Fetch preview mỗi lần range đổi
-    useEffect(() => {
+    // Tách hàm fetchPreview để có thể gọi lại
+    const fetchPreview = useCallback(async () => {
         if (!startTime || !endTime) return;
-        let cancelled = false;
-        async function fetchPreview() {
-            setFetchingPreview(true);
+        setFetchingPreview(true);
+        setOrdersPreview([]);
+        setSummaryPreview(undefined);
+        setError('');
+        try {
+            const resp = await OrderService.previewFromPrintedHistory({
+                startTime: toISOString(startTime),
+                endTime: toISOString(endTime)
+            });
+            if (resp.success && resp.data) {
+                setOrdersPreview(resp.data.orders || []);
+                setSummaryPreview(resp.data.summary);
+                // Map, nhưng key là username/NgàyLive (nếu cần unique hơn có thể `${username}-${liveDate}`)
+                const mapInit: Record<string, boolean> = {};
+                (resp.data.orders || []).forEach(o => { mapInit[`${o.username}||${o.liveDate}`] = false; });
+                setOrderCreatedMap(mapInit);
+            } else {
+                setError(resp.message || 'Không lấy được danh sách đơn có thể tạo.');
+                setSummaryPreview(undefined);
+                setOrdersPreview([]);
+            }
+        } catch (e) {
+            setError('Không fetch được danh sách đơn tạo được.');
             setOrdersPreview([]);
             setSummaryPreview(undefined);
-            setError('');
-            try {
-                const resp = await OrderService.previewFromPrintedHistory({
-                    startTime: toISOString(startTime),
-                    endTime: toISOString(endTime)
-                });
-                if (!cancelled) {
-                    if (resp.success && resp.data) {
-                        setOrdersPreview(resp.data.orders || []);
-                        setSummaryPreview(resp.data.summary);
-                        // Map, nhưng key là username/NgàyLive (nếu cần unique hơn có thể `${username}-${liveDate}`)
-                        const mapInit: Record<string, boolean> = {};
-                        (resp.data.orders || []).forEach(o => { mapInit[`${o.username}||${o.liveDate}`] = false; });
-                        setOrderCreatedMap(mapInit);
-                    } else {
-                        setError(resp.message || 'Không lấy được danh sách đơn có thể tạo.');
-                        setSummaryPreview(undefined);
-                        setOrdersPreview([]);
-                    }
-                }
-            } catch (e) {
-                if (!cancelled) {
-                    setError('Không fetch được danh sách đơn tạo được.');
-                    setOrdersPreview([]);
-                    setSummaryPreview(undefined);
-                }
-            } finally {
-                if (!cancelled) setFetchingPreview(false);
-            }
+        } finally {
+            setFetchingPreview(false);
         }
-        fetchPreview();
-        return () => { cancelled = true; };
     }, [startTime, endTime]);
+
+    // Fetch preview mỗi lần range đổi
+    useEffect(() => {
+        fetchPreview();
+    }, [fetchPreview]);
 
     // Tạo một đơn hàng cụ thể
     async function handleCreateSingleOrder(order: PreviewOrder) {
         const id = `${order.username}||${order.liveDate}`;
         setOrderCreatedMap(prev => ({ ...prev, [id]: 'loading' }));
         try {
-            // Gửi đúng range đã filter, backend đã gom group printed!
-            // Khi tạo thật vẫn dùng createFromPrintedHistory API cũ
-            const resp = await OrderService.createFromPrintedHistory({
-                startTime: toISOString(startTime),
-                endTime: toISOString(endTime)
-            });
+            // Chuyển đổi liveDate từ ISO string sang format YYYY-MM-DD
+            const liveDate = order.liveDate ? new Date(order.liveDate).toISOString().split('T')[0] : '';
+
+            // Tạo payload với thông tin đơn cụ thể
+            const payload = {
+                username: order.username,
+                liveDate: liveDate,
+                items: order.items.map(item => ({
+                    content: item.content || '',
+                    unit_price: item.unit_price,
+                    quantity: item.quantity
+                }))
+            };
+
+            const resp = await OrderService.createOrder(payload);
             if (resp.success) {
                 setOrderCreatedMap(prev => ({ ...prev, [id]: true }));
+                // Refresh preview để cập nhật danh sách đơn (đơn đã tạo sẽ không còn trong preview)
+                await fetchPreview();
             } else {
                 setOrderCreatedMap(prev => ({ ...prev, [id]: false }));
                 setError(resp.message || 'Tạo đơn thất bại!');
